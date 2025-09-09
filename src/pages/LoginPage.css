@@ -1,0 +1,24 @@
+/* src/pages/LoginPage.css */
+
+.login-gradient-bg {
+  background: linear-gradient(135deg, #6366f1, #f59e0b);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Fuerte capa de textura ruidosa */
+.login-gradient-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+
+  background-image: 
+    radial-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  
+  background-size: 3px 3px, 2px 2px;
+  mix-blend-mode: multiply;
+  opacity: 0.8;
+}
