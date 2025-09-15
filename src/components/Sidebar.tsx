@@ -11,11 +11,16 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import profileImage from "../assets/profile.jpg";
+import { useAuth } from "../context/auth-context";
 
 const navigation = [
   { name: "Dashboard", icon: HomeIcon, href: "/" },
   { name: "Planilla", icon: ClipboardDocumentIcon, href: "/planilla" },
-  { name: "Categorías de Ingresos", icon: TagIcon, href: "/categorias-ingresos" },
+  {
+    name: "Categorías de Ingresos",
+    icon: TagIcon,
+    href: "/categorias-ingresos",
+  },
   { name: "Ingresos", icon: ArrowDownTrayIcon, href: "/ingresos" },
   { name: "Categorías de Gastos", icon: TagIcon, href: "/categorias-gastos" },
   { name: "Gastos", icon: ArrowUpTrayIcon, href: "/gastos" },
@@ -25,6 +30,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const profileRef = useRef(null);
+  const { logout } = useAuth();
 
   // Cierra el dropdown al hacer clic fuera
   useEffect(() => {
@@ -40,6 +46,16 @@ export default function Sidebar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      setShowDropdown(false);
+      await logout();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
 
   return (
     <aside className="h-screen w-64 bg-white border-r border-gray-200 flex flex-col justify-between relative">
@@ -101,9 +117,10 @@ export default function Sidebar() {
               </button>
               <button
                 onClick={() => {
-                  setShowDropdown(false);
-                  console.log("Cerrar sesión");
+                  // setShowDropdown(false);
+                  // console.log("Cerrar sesión");
                   // 👉 si quieres, aquí puedes hacer navigate("/login")
+                  handleLogout();
                 }}
                 className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-indigo-100 hover:text-[#6366f1] rounded-md transition cursor-pointer"
               >
