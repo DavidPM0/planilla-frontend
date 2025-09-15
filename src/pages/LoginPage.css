@@ -22,3 +22,39 @@
   mix-blend-mode: multiply;
   opacity: 0.8;
 }
+
+.login-form {
+  position: relative;
+  box-shadow: 0 0 0 11px rgba(255, 255, 255, 0.5); /* Segundo borde más marcado (1px extra por fuera) */
+  backdrop-filter: blur(4px); /* Efecto de fondo difuminado opcional */
+}
+
+/* Estilo glassmorphism */
+.glass-card {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.5); /* Segundo borde más definido */
+}
+
+/* Inputs modernos mejorados */
+.input-field {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d1d5db; /* light gray */
+  border-radius: 0.5rem; /* más redondeado */
+  background-color: #fff;
+  font-size: 0.95rem;
+  color: #1f2937; /* text-gray-800 */
+  transition: border 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+
+.input-field::placeholder {
+  color: #9ca3af; /* text-gray-400 */
+}
+
+.input-field:focus {
+  border-color: #6366f1; /* indigo-500 */
+  background-color: #f9fafb; /* light bg on focus */
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.25); /* soft indigo glow */
+  outline: none;
+}
+

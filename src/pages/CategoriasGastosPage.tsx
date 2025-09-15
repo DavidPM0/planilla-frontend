@@ -7,20 +7,20 @@ import {
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 
-type Categoria = {
+type CategoriaGasto = {
   id: number;
   nombre: string;
   descripcion: string;
-  cantidadIngresos: number;
+  cantidadGastos: number;
   fechaRegistro: string;
   ultimaModificacion: string;
 };
 
-export default function CategoriasIngresosPage() {
+export default function CategoriasGastosPage() {
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [filtro, setFiltro] = useState("");
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaGasto[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const categoriasPorPagina = 9;
 
@@ -46,11 +46,11 @@ export default function CategoriasIngresosPage() {
 
     const fechaActual = new Date().toLocaleString();
 
-    const nuevaCategoria: Categoria = {
+    const nuevaCategoria: CategoriaGasto = {
       id: categorias.length + 1,
       nombre: nombre.trim(),
       descripcion: descripcion.trim(),
-      cantidadIngresos: Math.floor(Math.random() * 10), // Simulado
+      cantidadGastos: Math.floor(Math.random() * 10), // Simulado
       fechaRegistro: fechaActual,
       ultimaModificacion: fechaActual,
     };
@@ -96,10 +96,10 @@ export default function CategoriasIngresosPage() {
       {/* Encabezado */}
       <div className="p-6">
         <h1 className="text-2xl font-bold text-slate-800">
-          Categorías de Ingresos
+          Categorías de Gastos
         </h1>
         <p className="text-slate-600 text-sm">
-          Administra las categorías para tus ingresos
+          Administra las categorías para tus gastos
         </p>
       </div>
 
@@ -125,7 +125,7 @@ export default function CategoriasIngresosPage() {
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Ej: Sueldo, Bonificaciones..."
+                placeholder="Ej: Alimentación, Transporte..."
               />
             </div>
 
@@ -228,7 +228,7 @@ export default function CategoriasIngresosPage() {
                       <td className="px-4 py-2">{cat.nombre}</td>
                       <td className="px-4 py-2">{cat.descripcion}</td>
                       <td className="px-4 py-2 text-center">
-                        {cat.cantidadIngresos}
+                        {cat.cantidadGastos}
                       </td>
                       <td className="px-4 py-2">{cat.fechaRegistro}</td>
                       <td className="px-4 py-2">{cat.ultimaModificacion}</td>

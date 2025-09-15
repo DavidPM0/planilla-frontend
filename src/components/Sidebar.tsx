@@ -13,7 +13,7 @@ import { useState, useRef, useEffect } from "react";
 import profileImage from "../assets/profile.jpg";
 
 const navigation = [
-  { name: "Inicio", icon: HomeIcon, href: "/" },
+  { name: "Dashboard", icon: HomeIcon, href: "/" },
   { name: "Planilla", icon: ClipboardDocumentIcon, href: "/planilla" },
   { name: "Categorías de Ingresos", icon: TagIcon, href: "/categorias-ingresos" },
   { name: "Ingresos", icon: ArrowDownTrayIcon, href: "/ingresos" },
@@ -62,7 +62,7 @@ export default function Sidebar() {
       <div className="px-4 py-6 space-y-2">
         {/* Botón de usuarios */}
         <button
-          onClick={() => console.log("Settings")}
+          onClick={() => navigate("/usuarios")}
           className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-indigo-100 hover:text-[#6366f1] transition cursor-pointer"
         >
           <UserIcon className="w-5 h-5" />
@@ -88,30 +88,30 @@ export default function Sidebar() {
 
           {/* Mini popup / dropdown */}
           {showDropdown && (
-  <div className="absolute left-full bottom-0 mb-2 ml-2 w-52 bg-white border border-gray-200 rounded-md shadow-lg z-50 px-2 py-2">
-    <button
-      onClick={() => {
-        setShowDropdown(false);
-        console.log("Ir al perfil");
-      }}
-      className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-indigo-100 hover:text-[#6366f1] rounded-md transition cursor-pointer"
-    >
-      <UserIcon className="w-5 h-5" />
-      Ver perfil
-    </button>
-    <button
-      onClick={() => {
-        setShowDropdown(false);
-        console.log("Cerrar sesión");
-      }}
-      className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-indigo-100 hover:text-[#6366f1] rounded-md transition cursor-pointer"
-    >
-      <ArrowUpTrayIcon className="w-5 h-5 text-red-400" />
-      Cerrar sesión
-    </button>
-  </div>
-)}
-
+            <div className="absolute left-full bottom-0 mb-2 ml-2 w-52 bg-white border border-gray-200 rounded-md shadow-lg z-50 px-2 py-2">
+              <button
+                onClick={() => {
+                  setShowDropdown(false);
+                  navigate("/perfil"); // 👈 redirige al perfil
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-indigo-100 hover:text-[#6366f1] rounded-md transition cursor-pointer"
+              >
+                <UserIcon className="w-5 h-5" />
+                Ver perfil
+              </button>
+              <button
+                onClick={() => {
+                  setShowDropdown(false);
+                  console.log("Cerrar sesión");
+                  // 👉 si quieres, aquí puedes hacer navigate("/login")
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-indigo-100 hover:text-[#6366f1] rounded-md transition cursor-pointer"
+              >
+                <ArrowUpTrayIcon className="w-5 h-5 text-red-400" />
+                Cerrar sesión
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </aside>

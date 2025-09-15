@@ -5,38 +5,61 @@ import {
   PencilIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  EyeIcon,
+  EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 
 type Usuario = {
   id: number;
+  nombres: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
   correo: string;
   rol: string;
+  contrasena: string;
   fechaRegistro: Date;
   fechaModificacion: Date | null;
 };
 
-const rolesDisponibles = ["Admin", "Usuario", "Invitado"];
+const rolesDisponibles = ["Admin", "Usuario", "Invitado", "Editor", "Lector"];
 
 export default function UsuariosPage() {
+  const [nombres, setNombres] = useState("");
+  const [apellidoPaterno, setApellidoPaterno] = useState("");
+  const [apellidoMaterno, setApellidoMaterno] = useState("");
   const [correo, setCorreo] = useState("");
   const [contrasena, setContrasena] = useState("");
+  const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [rol, setRol] = useState(rolesDisponibles[1]);
   const [filtro, setFiltro] = useState("");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const usuariosPorPagina = 9;
 
-  // Filtrado por correo o rol
+  // Generar contraseña segura de ejemplo
+  const generarContrasena = () => {
+    const caracteres =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+    return Array.from({ length: 12 }, () =>
+      caracteres.charAt(Math.floor(Math.random() * caracteres.length))
+    ).join("");
+  };
+
+  // Filtrado
   const usuariosFiltrados = usuarios.filter(
     (u) =>
       u.correo.toLowerCase().includes(filtro.toLowerCase()) ||
-      u.rol.toLowerCase().includes(filtro.toLowerCase())
+      u.rol.toLowerCase().includes(filtro.toLowerCase()) ||
+      u.nombres.toLowerCase().includes(filtro.toLowerCase())
   );
 
   // Paginación
   const totalPaginas = Math.ceil(usuariosFiltrados.length / usuariosPorPagina);
   const startIndex = (currentPage - 1) * usuariosPorPagina;
-  const currentUsuarios = usuariosFiltrados.slice(startIndex, startIndex + usuariosPorPagina);
+  const currentUsuarios = usuariosFiltrados.slice(
+    startIndex,
+    startIndex + usuariosPorPagina
+  );
 
   // Validar correo simple
   const esCorreoValido = (email: string) =>
@@ -46,6 +69,10 @@ export default function UsuariosPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!nombres.trim() || !apellidoPaterno.trim() || !apellidoMaterno.trim()) {
+      alert("Por favor completa todos los campos de nombres y apellidos.");
+      return;
+    }
     if (!esCorreoValido(correo)) {
       alert("Por favor ingresa un correo válido.");
       return;
@@ -54,8 +81,6 @@ export default function UsuariosPage() {
       alert("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
-
-    // Evitar correos duplicados
     if (usuarios.some((u) => u.correo.toLowerCase() === correo.toLowerCase())) {
       alert("Ya existe un usuario con ese correo.");
       return;
@@ -63,65 +88,24 @@ export default function UsuariosPage() {
 
     const nuevoUsuario: Usuario = {
       id: usuarios.length + 1,
+      nombres: nombres.trim(),
+      apellidoPaterno: apellidoPaterno.trim(),
+      apellidoMaterno: apellidoMaterno.trim(),
       correo: correo.trim(),
       rol,
+      contrasena,
       fechaRegistro: new Date(),
       fechaModificacion: null,
     };
 
     setUsuarios([nuevoUsuario, ...usuarios]);
+    setNombres("");
+    setApellidoPaterno("");
+    setApellidoMaterno("");
     setCorreo("");
     setContrasena("");
     setRol(rolesDisponibles[1]);
     setCurrentPage(1);
-  };
-
-  const handleDelete = (id: number) => {
-    if (confirm("¿Seguro que quieres eliminar este usuario?")) {
-      setUsuarios(usuarios.filter((u) => u.id !== id));
-    }
-  };
-
-  const handleEdit = (id: number) => {
-    const usuario = usuarios.find((u) => u.id === id);
-    if (!usuario) return;
-
-    const nuevoCorreo = prompt("Editar correo:", usuario.correo);
-    if (!nuevoCorreo || !esCorreoValido(nuevoCorreo.trim())) {
-      alert("Correo inválido o vacío.");
-      return;
-    }
-    const nuevoRol = prompt(
-      `Editar rol (Admin, Usuario, Invitado):`,
-      usuario.rol
-    );
-    if (!nuevoRol || !rolesDisponibles.includes(nuevoRol.trim())) {
-      alert("Rol inválido o vacío.");
-      return;
-    }
-
-    // Evitar duplicados en edición
-    if (
-      usuarios.some(
-        (u) => u.correo.toLowerCase() === nuevoCorreo.trim().toLowerCase() && u.id !== id
-      )
-    ) {
-      alert("Ya existe otro usuario con ese correo.");
-      return;
-    }
-
-    setUsuarios(
-      usuarios.map((u) =>
-        u.id === id
-          ? {
-              ...u,
-              correo: nuevoCorreo.trim(),
-              rol: nuevoRol.trim(),
-              fechaModificacion: new Date(),
-            }
-          : u
-      )
-    );
   };
 
   return (
@@ -141,64 +125,113 @@ export default function UsuariosPage() {
           {/* Formulario */}
           <form
             onSubmit={handleSubmit}
-            className="bg-white shadow rounded-lg p-4 space-y-4 max-w-md w-full"
+            className="bg-white shadow rounded-lg p-4 space-y-4 max-w-3xl w-full"
           >
-            <div>
-              <label
-                htmlFor="correo"
-                className="block text-sm font-medium text-slate-700"
-              >
-                Correo electrónico
-              </label>
-              <input
-                id="correo"
-                type="email"
-                value={correo}
-                onChange={(e) => setCorreo(e.target.value)}
-                className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="usuario@ejemplo.com"
-                required
-              />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Nombres
+                </label>
+                <input
+                  type="text"
+                  value={nombres}
+                  onChange={(e) => setNombres(e.target.value)}
+                  className="input-field"
+                  placeholder="Ej: Juan Carlos"
+                  required
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="contrasena"
-                className="block text-sm font-medium text-slate-700"
-              >
-                Contraseña
-              </label>
-              <input
-                id="contrasena"
-                type="password"
-                value={contrasena}
-                onChange={(e) => setContrasena(e.target.value)}
-                className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Mínimo 6 caracteres"
-                required
-                minLength={6}
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Apellido Paterno
+                </label>
+                <input
+                  type="text"
+                  value={apellidoPaterno}
+                  onChange={(e) => setApellidoPaterno(e.target.value)}
+                  className="input-field"
+                  placeholder="Ej: Pérez"
+                  required
+                />
+              </div>
 
-            <div>
-              <label
-                htmlFor="rol"
-                className="block text-sm font-medium text-slate-700"
-              >
-                Rol
-              </label>
-              <select
-                id="rol"
-                value={rol}
-                onChange={(e) => setRol(e.target.value)}
-                className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                {rolesDisponibles.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Apellido Materno
+                </label>
+                <input
+                  type="text"
+                  value={apellidoMaterno}
+                  onChange={(e) => setApellidoMaterno(e.target.value)}
+                  className="input-field"
+                  placeholder="Ej: Gómez"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Correo electrónico
+                </label>
+                <input
+                  type="email"
+                  value={correo}
+                  onChange={(e) => setCorreo(e.target.value)}
+                  className="input-field"
+                  placeholder="usuario@ejemplo.com"
+                  required
+                />
+              </div>
+
+              <div className="relative">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Contraseña
+                </label>
+                <input
+                  type={mostrarContrasena ? "text" : "password"}
+                  value={contrasena}
+                  onChange={(e) => setContrasena(e.target.value)}
+                  className="input-field pr-10"
+                  placeholder="Mínimo 6 caracteres"
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarContrasena(!mostrarContrasena)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-indigo-500"
+                >
+                  {mostrarContrasena ? (
+                    <EyeSlashIcon className="w-5 h-5" />
+                  ) : (
+                    <EyeIcon className="w-5 h-5" />
+                  )}
+                </button>
+                <p
+                  className="text-xs text-slate-500 mt-1 cursor-pointer hover:text-indigo-500"
+                  onClick={() => setContrasena(generarContrasena())}
+                >
+                  Generar contraseña segura
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Rol
+                </label>
+                <select
+                  value={rol}
+                  onChange={(e) => setRol(e.target.value)}
+                  className="input-field"
+                >
+                  {rolesDisponibles.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <button
@@ -211,22 +244,18 @@ export default function UsuariosPage() {
           </form>
 
           {/* Buscador */}
-          <div className="w-full md:w-64 relative">
-            <label
-              htmlFor="buscar"
-              className="block text-sm font-medium text-slate-700 mb-1"
-            >
+          <div className="relative text-slate-400 focus-within:text-indigo-500">
+            <label className="block text-sm font-medium text-slate-700 mb-1">
               Buscar usuario
             </label>
-            <div className="relative text-slate-400 focus-within:text-indigo-500">
+            <div className="relative">
               <input
-                id="buscar"
                 type="text"
                 value={filtro}
                 onChange={(e) => setFiltro(e.target.value)}
-                placeholder="Buscar correo o rol..."
+                placeholder="Buscar por nombre, correo o rol..."
                 className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm placeholder-slate-400
-                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
               <svg
                 className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
@@ -253,17 +282,22 @@ export default function UsuariosPage() {
           </h3>
 
           {usuariosFiltrados.length === 0 ? (
-            <p className="text-sm text-slate-500">No hay usuarios que coincidan.</p>
+            <p className="text-sm text-slate-500">
+              No hay usuarios que coincidan.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm text-left text-slate-600">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700">
                     <th className="px-4 py-3">ID</th>
+                    <th className="px-4 py-3">Nombres</th>
+                    <th className="px-4 py-3">Apellido Paterno</th>
+                    <th className="px-4 py-3">Apellido Materno</th>
                     <th className="px-4 py-3">Correo</th>
                     <th className="px-4 py-3">Rol</th>
-                    <th className="px-4 py-3">Fecha registro</th>
-                    <th className="px-4 py-3">Fecha modificación</th>
+                    <th className="px-4 py-3">Fecha creación</th>
+                    <th className="px-4 py-3">Última modificación</th>
                     <th className="px-4 py-3 text-center">Acciones</th>
                   </tr>
                 </thead>
@@ -271,31 +305,32 @@ export default function UsuariosPage() {
                   {currentUsuarios.map((u, index) => (
                     <tr
                       key={u.id}
-                      className={index % 2 === 0 ? "bg-white" : "bg-slate-50 hover:bg-slate-100"}
+                      className={
+                        index % 2 === 0
+                          ? "bg-white"
+                          : "bg-slate-50 hover:bg-slate-100"
+                      }
                     >
                       <td className="px-4 py-2">{u.id}</td>
+                      <td className="px-4 py-2">{u.nombres}</td>
+                      <td className="px-4 py-2">{u.apellidoPaterno}</td>
+                      <td className="px-4 py-2">{u.apellidoMaterno}</td>
                       <td className="px-4 py-2">{u.correo}</td>
                       <td className="px-4 py-2">{u.rol}</td>
                       <td className="px-4 py-2">
                         {u.fechaRegistro.toLocaleString()}
                       </td>
                       <td className="px-4 py-2">
-                        {u.fechaModificacion ? u.fechaModificacion.toLocaleString() : "-"}
+                        {u.fechaModificacion
+                          ? u.fechaModificacion.toLocaleString()
+                          : "-"}
                       </td>
                       <td className="px-4 py-2 text-center">
                         <div className="flex justify-center gap-2">
-                          <button
-                            title="Editar"
-                            onClick={() => handleEdit(u.id)}
-                            className="text-indigo-500 hover:text-indigo-700 p-1 rounded-full transition cursor-pointer"
-                          >
+                          <button className="text-indigo-500 hover:text-indigo-700 p-1 rounded-full transition cursor-pointer">
                             <PencilIcon className="w-5 h-5" />
                           </button>
-                          <button
-                            title="Eliminar"
-                            onClick={() => handleDelete(u.id)}
-                            className="text-red-500 hover:text-red-700 p-1 rounded-full transition cursor-pointer"
-                          >
+                          <button className="text-red-500 hover:text-red-700 p-1 rounded-full transition cursor-pointer">
                             <TrashIcon className="w-5 h-5" />
                           </button>
                         </div>
@@ -319,7 +354,9 @@ export default function UsuariosPage() {
                   Página {currentPage} de {totalPaginas || 1}
                 </span>
                 <button
-                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPaginas))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPaginas))
+                  }
                   disabled={currentPage === totalPaginas || totalPaginas === 0}
                   className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-800 disabled:opacity-50 cursor-pointer"
                 >

@@ -16,37 +16,43 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="login-gradient-bg min-h-screen flex items-center justify-center relative">
+    <div className="login-gradient-bg min-h-screen flex items-center justify-center px-4">
       <form
         onSubmit={handleLogin}
-        className="bg-white bg-opacity-90 p-8 rounded-lg shadow-lg w-full max-w-sm z-10"
+        className="login-form glass-card w-full max-w-md p-8 rounded-xl shadow-xl z-10"
       >
-        <h2 className="text-xl font-bold mb-4 text-center">Iniciar sesión</h2>
+        <h2 className="text-2xl font-semibold text-center mb-6 text-gray-800">Iniciar sesión</h2>
 
-        <input
-          type="email"
-          placeholder="Correo"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full mb-3 px-4 py-2 border rounded-md"
-          required
-        />
+        <div className="mb-4">
+          <label className="block text-gray-700 text-sm font-medium mb-1">Correo electrónico</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="input-field"
+            placeholder="ejemplo@correo.com"
+            required
+          />
+        </div>
 
-        <input
-          type="password"
-          placeholder="Contraseña"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full mb-3 px-4 py-2 border rounded-md"
-          required
-        />
+        <div className="mb-6">
+          <label className="block text-gray-700 text-sm font-medium mb-1">Contraseña</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="input-field"
+            placeholder="••••••••"
+            required
+          />
+        </div>
 
         <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
-        >
-          Entrar
-        </button>
+  type="submit"
+  className="w-full py-3 px-4 rounded-lg text-sm font-medium transition text-center bg-indigo-500 text-white shadow hover:bg-indigo-600 cursor-pointer"
+>
+  Entrar
+</button>
       </form>
     </div>
   );
