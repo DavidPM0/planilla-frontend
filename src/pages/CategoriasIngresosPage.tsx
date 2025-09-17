@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   PlusIcon,
   TrashIcon,
@@ -6,30 +6,196 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
+import useFetchApi from "../hooks/use-fetch";
 
+// --- TIPOS DE DATOS ---
 type Categoria = {
   id: number;
   nombre: string;
   descripcion: string;
-  cantidadIngresos: number;
-  fechaRegistro: string;
-  ultimaModificacion: string;
+  tipoCategoria: "INGRESO";
+  cantidadGastos: number; // La API lo devuelve, lo mantenemos por consistencia
+  fechaCreacion: string;
+  fechaModificacion: string;
 };
 
+type CreateCategoriaRequest = {
+  nombre: string;
+  descripcion: string;
+  tipo: "INGRESO";
+};
+
+interface EditModalProps {
+  categoria: Categoria;
+  onSave: (categoria: Categoria) => void;
+  onCancel: () => void;
+}
+
+// --- COMPONENTE MODAL PARA LA EDICIÓN ---
+const EditModal = ({ categoria, onSave, onCancel }: EditModalProps) => {
+  const [nombre, setNombre] = useState(categoria.nombre);
+  const [descripcion, setDescripcion] = useState(categoria.descripcion);
+
+  const handleSave = () => {
+    if (!nombre.trim()) return;
+    onSave({
+      ...categoria,
+      nombre: nombre.trim(),
+      descripcion: descripcion.trim(),
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md space-y-4">
+        <h2 className="text-xl font-bold text-slate-800">
+          Editar Categoría de Ingreso
+        </h2>
+        <div>
+          <label
+            htmlFor="edit-nombre"
+            className="block text-sm font-medium text-slate-700"
+          >
+            Nombre
+          </label>
+          <input
+            id="edit-nombre"
+            type="text"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm p-2 text-sm"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="edit-descripcion"
+            className="block text-sm font-medium text-slate-700"
+          >
+            Descripción
+          </label>
+          <textarea
+            id="edit-descripcion"
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            className="mt-1 block w-full border border-slate-300 rounded-md shadow-sm p-2 text-sm"
+          />
+        </div>
+        <div className="flex justify-end gap-4">
+          <button
+            onClick={onCancel}
+            className="bg-slate-200 text-slate-800 px-4 py-2 rounded-md text-sm"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            className="bg-indigo-500 text-white px-4 py-2 rounded-md text-sm"
+          >
+            Guardar Cambios
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- COMPONENTE PRINCIPAL ---
 export default function CategoriasIngresosPage() {
+  // Estados para el formulario de creación
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [filtro, setFiltro] = useState("");
+
+  // Estados de la página
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [filtro, setFiltro] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const categoriasPorPagina = 9;
 
-  // Filtrado
+  // Estados para el Modal de edición
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(
+    null
+  );
+
+  const { get, post, patch, del } = useFetchApi();
+
+  const fetchCategorias = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await get<Categoria[]>("/categorias?tipo=INGRESO");
+      setCategorias(data);
+    } catch (err) {
+      setError("Error al cargar las categorías de ingresos.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [get]);
+
+  useEffect(() => {
+    fetchCategorias();
+  }, [fetchCategorias]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (nombre.trim() === "") return;
+
+    const nuevaCategoriaRequest: CreateCategoriaRequest = {
+      nombre: nombre.trim(),
+      descripcion: descripcion.trim(),
+      tipo: "INGRESO",
+    };
+
+    try {
+      await post("/categorias", nuevaCategoriaRequest);
+      await fetchCategorias();
+      setNombre("");
+      setDescripcion("");
+    } catch (err) {
+      setError("No se pudo crear la categoría.");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm("¿Está seguro de que desea eliminar esta categoría?")) {
+      try {
+        await del(`/categorias/${id}`);
+        setCategorias(categorias.filter((cat) => cat.id !== id));
+      } catch (err) {
+        setError("No se pudo eliminar la categoría.");
+        await fetchCategorias();
+      }
+    }
+  };
+
+  const handleEditClick = (categoria: Categoria) => {
+    setEditingCategoria(categoria);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingCategoria(null);
+  };
+
+  const handleUpdate = async (categoriaActualizada: Categoria) => {
+    const { id, nombre, descripcion } = categoriaActualizada;
+    const dataToUpdate = { nombre, descripcion };
+
+    try {
+      await patch(`/categorias/${id}`, dataToUpdate);
+      handleCloseModal();
+      await fetchCategorias();
+    } catch (err) {
+      setError("No se pudo actualizar la categoría.");
+    }
+  };
+
   const categoriasFiltradas = categorias.filter((cat) =>
     cat.nombre.toLowerCase().includes(filtro.toLowerCase())
   );
-
-  // Paginación
   const totalPaginas = Math.ceil(
     categoriasFiltradas.length / categoriasPorPagina
   );
@@ -38,62 +204,11 @@ export default function CategoriasIngresosPage() {
     startIndex,
     startIndex + categoriasPorPagina
   );
-
-  // Agregar nueva categoría
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (nombre.trim() === "") return;
-
-    const fechaActual = new Date().toLocaleString();
-
-    const nuevaCategoria: Categoria = {
-      id: categorias.length + 1,
-      nombre: nombre.trim(),
-      descripcion: descripcion.trim(),
-      cantidadIngresos: Math.floor(Math.random() * 10), // Simulado
-      fechaRegistro: fechaActual,
-      ultimaModificacion: fechaActual,
-    };
-
-    setCategorias([nuevaCategoria, ...categorias]);
-    setNombre("");
-    setDescripcion("");
-    setCurrentPage(1);
-  };
-
-  const handleDelete = (id: number) => {
-    setCategorias(categorias.filter((cat) => cat.id !== id));
-  };
-
-  const handleEdit = (id: number) => {
-    const categoria = categorias.find((c) => c.id === id);
-    if (!categoria) return;
-
-    const nuevoNombre = prompt("Editar nombre de categoría:", categoria.nombre);
-    const nuevaDescripcion = prompt(
-      "Editar descripción de categoría:",
-      categoria.descripcion
-    );
-
-    if (nuevoNombre && nuevoNombre.trim() !== "") {
-      setCategorias(
-        categorias.map((cat) =>
-          cat.id === id
-            ? {
-                ...cat,
-                nombre: nuevoNombre.trim(),
-                descripcion: nuevaDescripcion?.trim() || cat.descripcion,
-                ultimaModificacion: new Date().toLocaleString(),
-              }
-            : cat
-        )
-      );
-    }
-  };
+  const formatearFecha = (fechaISO: string) =>
+    new Date(fechaISO).toLocaleString();
 
   return (
     <div className="bg-[#f9fafb] flex flex-col">
-      {/* Encabezado */}
       <div className="p-6">
         <h1 className="text-2xl font-bold text-slate-800">
           Categorías de Ingresos
@@ -102,12 +217,9 @@ export default function CategoriasIngresosPage() {
           Administra las categorías para tus ingresos
         </p>
       </div>
-
-      {/* Contenido principal */}
       <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-6">
-        {/* Formulario y buscador */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-          {/* Formulario */}
+          {/* --- FORMULARIO VISIBLE --- */}
           <form
             onSubmit={handleSubmit}
             className="bg-white shadow rounded-lg p-4 space-y-4 max-w-md w-full"
@@ -128,7 +240,6 @@ export default function CategoriasIngresosPage() {
                 placeholder="Ej: Sueldo, Bonificaciones..."
               />
             </div>
-
             <div>
               <label
                 htmlFor="descripcion"
@@ -144,7 +255,6 @@ export default function CategoriasIngresosPage() {
                 placeholder="Breve descripción de la categoría..."
               />
             </div>
-
             <button
               type="submit"
               className="flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-600 transition"
@@ -154,7 +264,7 @@ export default function CategoriasIngresosPage() {
             </button>
           </form>
 
-          {/* Buscador */}
+          {/* --- BUSCADOR --- */}
           <div className="w-full md:w-64 relative">
             <label
               htmlFor="buscar"
@@ -169,8 +279,7 @@ export default function CategoriasIngresosPage() {
                 value={filtro}
                 onChange={(e) => setFiltro(e.target.value)}
                 placeholder="Buscar categoría..."
-                className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm placeholder-slate-400
-        focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm"
               />
               <svg
                 className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
@@ -195,94 +304,99 @@ export default function CategoriasIngresosPage() {
           <h3 className="text-md font-semibold text-slate-700 mb-4">
             Categorías registradas
           </h3>
-
-          {categoriasFiltradas.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              No hay categorías que coincidan.
-            </p>
+          {isLoading ? (
+            <p>Cargando...</p>
+          ) : error ? (
+            <p className="text-red-500">{error}</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm text-left text-slate-600">
-                <thead>
-                  <tr className="bg-slate-100 text-slate-700">
-                    <th className="px-4 py-3">ID</th>
-                    <th className="px-4 py-3">Nombre</th>
-                    <th className="px-4 py-3">Descripción</th>
-                    <th className="px-4 py-3 text-center">Cantidad</th>
-                    <th className="px-4 py-3">Fecha Registro</th>
-                    <th className="px-4 py-3">Última Modificación</th>
-                    <th className="px-4 py-3 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentCategorias.map((cat, index) => (
-                    <tr
-                      key={cat.id}
-                      className={
-                        index % 2 === 0
-                          ? "bg-white"
-                          : "bg-slate-50 hover:bg-slate-100"
-                      }
-                    >
-                      <td className="px-4 py-2">{cat.id}</td>
-                      <td className="px-4 py-2">{cat.nombre}</td>
-                      <td className="px-4 py-2">{cat.descripcion}</td>
-                      <td className="px-4 py-2 text-center">
-                        {cat.cantidadIngresos}
-                      </td>
-                      <td className="px-4 py-2">{cat.fechaRegistro}</td>
-                      <td className="px-4 py-2">{cat.ultimaModificacion}</td>
-                      <td className="px-4 py-2 text-center">
-                        <div className="flex justify-center gap-2">
-                          <button
-                            title="Editar"
-                            onClick={() => handleEdit(cat.id)}
-                            className="text-indigo-500 hover:text-indigo-700 p-1 rounded-full transition cursor-pointer"
-                          >
-                            <PencilIcon className="w-5 h-5" />
-                          </button>
-                          <button
-                            title="Eliminar"
-                            onClick={() => handleDelete(cat.id)}
-                            className="text-red-500 hover:text-red-700 p-1 rounded-full transition cursor-pointer"
-                          >
-                            <TrashIcon className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm text-left text-slate-600">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700">
+                      <th className="px-4 py-3">ID</th>
+                      <th className="px-4 py-3">Nombre</th>
+                      <th className="px-4 py-3">Descripción</th>
+                      <th className="px-4 py-3 text-center">
+                        Cant. Transacciones
+                      </th>
+                      <th className="px-4 py-3">Fecha Creación</th>
+                      <th className="px-4 py-3">Última Modificación</th>
+                      <th className="px-4 py-3 text-center">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Paginación */}
+                  </thead>
+                  <tbody>
+                    {currentCategorias.map((cat) => (
+                      <tr key={cat.id}>
+                        <td className="px-4 py-2">{cat.id}</td>
+                        <td className="px-4 py-2">{cat.nombre}</td>
+                        <td className="px-4 py-2">{cat.descripcion}</td>
+                        <td className="px-4 py-2 text-center">
+                          {cat.cantidadGastos}
+                        </td>
+                        <td className="px-4 py-2">
+                          {formatearFecha(cat.fechaCreacion)}
+                        </td>
+                        <td className="px-4 py-2">
+                          {formatearFecha(cat.fechaModificacion)}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => handleEditClick(cat)}
+                              title="Editar"
+                              className="text-indigo-500 hover:text-indigo-700 p-1"
+                            >
+                              <PencilIcon className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(cat.id)}
+                              title="Eliminar"
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <TrashIcon className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <div className="flex justify-between items-center mt-4">
                 <button
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                   disabled={currentPage === 1}
-                  className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-800 disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-1 text-sm text-slate-600"
                 >
-                  <ChevronLeftIcon className="w-5 h-5" />
-                  Anterior
+                  <ChevronLeftIcon className="w-5 h-5" /> Anterior
                 </button>
                 <span className="text-sm text-slate-600">
                   Página {currentPage} de {totalPaginas || 1}
                 </span>
                 <button
                   onClick={() =>
-                    setCurrentPage((prev) => Math.min(prev + 1, totalPaginas))
+                    setCurrentPage((p) => Math.min(p + 1, totalPaginas))
                   }
                   disabled={currentPage === totalPaginas || totalPaginas === 0}
-                  className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-800 disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-1 text-sm text-slate-600"
                 >
-                  Siguiente
-                  <ChevronRightIcon className="w-5 h-5" />
+                  Siguiente <ChevronRightIcon className="w-5 h-5" />
                 </button>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
+
+      {/* --- MODAL PARA EDITAR CATEGORÍA --- */}
+      {isModalOpen && editingCategoria && (
+        <EditModal
+          categoria={editingCategoria}
+          onSave={handleUpdate}
+          onCancel={handleCloseModal}
+        />
+      )}
     </div>
   );
 }

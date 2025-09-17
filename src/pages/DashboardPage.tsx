@@ -1,4 +1,3 @@
-// src/pages/DashboardPage.tsx
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -13,64 +12,102 @@ import {
   ArrowDownCircleIcon,
   ArrowUpCircleIcon,
 } from "@heroicons/react/24/outline";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import useFetchApi from "../hooks/use-fetch"; // Asegúrate de que la ruta sea correcta
 
-// Chart.js registration
+// Se registra Chart.js para que funcione con React
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+
+// --- TIPOS DE DATOS DE LA API ---
+type ResumenDashboard = {
+  ingresoDelMes: number;
+  gastoDelMes: number;
+  balanceAcumulado: number;
+};
+
+type GraficaAnualItem = {
+  mes: number;
+  ingresos: number;
+  gastos: number;
+};
 
 // Meses en español
 const MONTHS = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
 ];
 
-// Años disponibles
+// Años disponibles (generados dinámicamente)
 const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: currentYear - 2021 }, (_, i) => 2022 + i);
-
-// Datos de prueba por año y mes
-const sampleData: {
-  [year: number]: {
-    ingresos: number[];
-    gastos: number[];
-  };
-} = {
-  2022: {
-    ingresos: [6000, 7200, 8000, 7500, 9000, 8800, 9100, 9400, 9200, 9500, 9700, 9900],
-    gastos:   [4000, 5000, 5200, 5300, 5500, 5600, 5700, 5900, 5800, 6000, 6100, 6200],
-  },
-  2023: {
-    ingresos: [8500, 9000, 9500, 10000, 11000, 11500, 12000, 12500, 13000, 13500, 14000, 14500],
-    gastos:   [5000, 5500, 5800, 6000, 6200, 6400, 6600, 6800, 7000, 7200, 7400, 7600],
-  },
-  2024: {
-    ingresos: [10000, 10500, 11000, 12000, 12500, 13000, 13500, 14000, 14500, 15000, 15500, 16000],
-    gastos:   [6000, 6500, 6700, 6900, 7100, 7300, 7500, 7700, 7900, 8100, 8300, 8500],
-  },
-};
+const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - 4 + i);
 
 export default function DashboardPage() {
   const today = new Date();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
 
-  const currentData = sampleData[selectedYear] || { ingresos: [], gastos: [] };
-  const currentMonthIncome = currentData.ingresos[selectedMonth] || 0;
-  const currentMonthExpense = currentData.gastos[selectedMonth] || 0;
+  // --- ESTADOS PARA LOS DATOS DE LA API ---
+  const [resumenData, setResumenData] = useState<ResumenDashboard | null>(null);
+  const [graficaData, setGraficaData] = useState<GraficaAnualItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  const { get } = useFetchApi();
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        anio: selectedYear.toString(),
+        mes: (selectedMonth + 1).toString(), // +1 porque getMonth() es base 0 (Enero=0)
+      });
+
+      const [resumen, grafica] = await Promise.all([
+        get<ResumenDashboard>(`/panel-control/dashboard?${params.toString()}`),
+        get<GraficaAnualItem[]>(
+          `/panel-control/grafica-anual?anio=${selectedYear}`
+        ),
+      ]);
+
+      setResumenData(resumen);
+      setGraficaData(grafica);
+    } catch (err) {
+      setError("No se pudieron cargar los datos del dashboard.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [get, selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // --- PREPARACIÓN DE DATOS PARA EL GRÁFICO ---
   const chartData = {
     labels: MONTHS,
     datasets: [
       {
         label: "Ingresos",
-        data: currentData.ingresos,
+        data: graficaData.map((d) => d.ingresos),
         backgroundColor: "#6366f1", // indigo-500
         borderRadius: 6,
         barPercentage: 0.5,
       },
       {
         label: "Gastos",
-        data: currentData.gastos,
+        data: graficaData.map((d) => d.gastos),
         backgroundColor: "#f59e0b", // amber-500
         borderRadius: 6,
         barPercentage: 0.5,
@@ -101,6 +138,18 @@ export default function DashboardPage() {
     },
   };
 
+  if (isLoading) {
+    return (
+      <div className="p-6 text-center text-slate-500">
+        Cargando dashboard...
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="p-6 text-center text-red-500">{error}</div>;
+  }
+
   return (
     <div className="p-6 bg-[#f9fafb] min-h-screen space-y-6">
       {/* Header */}
@@ -117,11 +166,11 @@ export default function DashboardPage() {
             <button
               key={year}
               onClick={() => setSelectedYear(year)}
-              className={`py-2 px-4 rounded-lg text-sm font-medium transition
-                ${year === selectedYear
+              className={`py-2 px-4 rounded-lg text-sm font-medium transition ${
+                year === selectedYear
                   ? "bg-indigo-500 text-white shadow"
                   : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-100"
-                }`}
+              }`}
             >
               {year}
             </button>
@@ -134,11 +183,11 @@ export default function DashboardPage() {
             <button
               key={month}
               onClick={() => setSelectedMonth(index)}
-              className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition text-center
-                ${index === selectedMonth
+              className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition text-center ${
+                index === selectedMonth
                   ? "bg-indigo-500 text-white shadow"
                   : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-100"
-                }`}
+              }`}
             >
               {month}
             </button>
@@ -150,21 +199,21 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card
           title="Ingresos del mes"
-          amount={currentMonthIncome}
+          amount={resumenData?.ingresoDelMes || 0}
           icon={<ArrowUpCircleIcon className="w-6 h-6 text-indigo-500" />}
           bgColor="bg-indigo-100"
           textColor="text-indigo-700"
         />
         <Card
           title="Gastos del mes"
-          amount={currentMonthExpense}
+          amount={resumenData?.gastoDelMes || 0}
           icon={<ArrowDownCircleIcon className="w-6 h-6 text-amber-500" />}
           bgColor="bg-amber-100"
           textColor="text-amber-700"
         />
         <Card
-          title="Balance"
-          amount={currentMonthIncome - currentMonthExpense}
+          title="Balance (Acumulado del año)"
+          amount={resumenData?.balanceAcumulado || 0}
           icon={<Squares2X2Icon className="w-6 h-6 text-slate-500" />}
           bgColor="bg-slate-100"
           textColor="text-slate-700"
@@ -184,7 +233,7 @@ export default function DashboardPage() {
   );
 }
 
-// Tarjeta reutilizable
+// --- COMPONENTE DE TARJETA REUTILIZABLE ---
 function Card({
   title,
   amount,
@@ -199,11 +248,17 @@ function Card({
   textColor: string;
 }) {
   return (
-    <div className={`flex justify-between items-center p-4 rounded-lg shadow-sm ${bgColor}`}>
+    <div
+      className={`flex justify-between items-center p-4 rounded-lg shadow-sm ${bgColor}`}
+    >
       <div>
         <h4 className="text-sm text-slate-500">{title}</h4>
-        <p className={`text-xl font-bold ${textColor}`}>
-          ${amount.toLocaleString()}
+        <p className={`text-2xl font-bold ${textColor}`}>
+          S/{" "}
+          {amount.toLocaleString("es-PE", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
         </p>
       </div>
       <div className="p-2 rounded-full bg-white shadow">{icon}</div>
