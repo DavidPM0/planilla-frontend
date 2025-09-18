@@ -8,10 +8,15 @@ import {
 import useFetchApi from "../hooks/use-fetch";
 
 interface User {
-  id: string;
+  id: number;
+  nombres: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
   correoElectronico: string;
   estadoRegistro: boolean;
   perfiles: string[];
+  fechaCreacion: Date;
+  fechaModificacion: Date;
 }
 
 export interface Credentials {
@@ -22,7 +27,6 @@ export interface Credentials {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  menu: any[];
   login: (credentials: Credentials) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
@@ -49,7 +53,6 @@ export const AuthContextProvider = ({ children }: AuthContextProviderProps) => {
   const [token, setToken] = useState<string | null>(() =>
     localStorage.getItem("token")
   );
-  const [menu, setMenu] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const { get, post } = useFetchApi();
@@ -62,18 +65,13 @@ export const AuthContextProvider = ({ children }: AuthContextProviderProps) => {
     }
 
     try {
-      const [statusResponse, menuResponse] = await Promise.all([
-        get<{ user: User; token: string }>("/auth/check-status"),
-        get<any[]>("/auth/menu"),
-      ]);
+      const statusResponse = await get<{ user: User; token: string }>("/auth/check-status");
       setUser(statusResponse.user);
-      setMenu(menuResponse);
       setToken(statusResponse.token);
       localStorage.setItem("token", statusResponse.token); // Guardamos el token actualizado
     } catch (error) {
       // Si check-status falla, el interceptor redirigira al login
       setUser(null);
-      setMenu([]);
       localStorage.removeItem("token");
     } finally {
       setIsLoading(false);
@@ -97,8 +95,6 @@ export const AuthContextProvider = ({ children }: AuthContextProviderProps) => {
         setToken(newToken);
         setUser(loggedInUser);
 
-        const menuData = await get<any[]>("/auth/menu");
-        setMenu(menuData);
       } catch (error) {
         throw error; // Relanzamos para que el componente de Login pueda manejar el fallo
       }
@@ -108,14 +104,13 @@ export const AuthContextProvider = ({ children }: AuthContextProviderProps) => {
 
   const logout = useCallback(async () => {
     setUser(null);
-    setMenu([]);
     localStorage.removeItem("token");
     // window.location.href = "/login";
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ user, token, menu, isLoading, login, logout }}
+      value={{ user, token, isLoading, login, logout }}
     >
       {isLoading ? <div>Loading...</div> : children}
     </AuthContext.Provider>
