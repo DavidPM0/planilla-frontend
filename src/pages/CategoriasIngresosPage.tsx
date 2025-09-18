@@ -14,7 +14,7 @@ type Categoria = {
   nombre: string;
   descripcion: string;
   tipoCategoria: "INGRESO";
-  cantidadGastos: number; // La API lo devuelve, lo mantenemos por consistencia
+  cantidadTransacciones: number; // La API lo devuelve, lo mantenemos por consistencia
   fechaCreacion: string;
   fechaModificacion: string;
 };
@@ -332,7 +332,7 @@ export default function CategoriasIngresosPage() {
                         <td className="px-4 py-2">{cat.nombre}</td>
                         <td className="px-4 py-2">{cat.descripcion}</td>
                         <td className="px-4 py-2 text-center">
-                          {cat.cantidadGastos}
+                          {cat.cantidadTransacciones}
                         </td>
                         <td className="px-4 py-2">
                           {formatearFecha(cat.fechaCreacion)}

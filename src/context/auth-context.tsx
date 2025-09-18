@@ -7,7 +7,7 @@ import {
 } from "react";
 import useFetchApi from "../hooks/use-fetch";
 
-interface User {
+export interface User {
   id: number;
   nombres: string;
   apellidoPaterno: string;
@@ -15,8 +15,8 @@ interface User {
   correoElectronico: string;
   estadoRegistro: boolean;
   perfiles: string[];
-  fechaCreacion: Date;
-  fechaModificacion: Date;
+  fechaCreacion: string;
+  fechaModificacion: string;
 }
 
 export interface Credentials {
@@ -30,6 +30,7 @@ interface AuthContextType {
   login: (credentials: Credentials) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  checkUserSession: () => Promise<void>; // Método opcional para verificar la sesión
 }
 
 interface AuthContextProviderProps {
@@ -65,7 +66,9 @@ export const AuthContextProvider = ({ children }: AuthContextProviderProps) => {
     }
 
     try {
-      const statusResponse = await get<{ user: User; token: string }>("/auth/check-status");
+      const statusResponse = await get<{ user: User; token: string }>(
+        "/auth/check-status"
+      );
       setUser(statusResponse.user);
       setToken(statusResponse.token);
       localStorage.setItem("token", statusResponse.token); // Guardamos el token actualizado
@@ -94,7 +97,6 @@ export const AuthContextProvider = ({ children }: AuthContextProviderProps) => {
         localStorage.setItem("token", newToken);
         setToken(newToken);
         setUser(loggedInUser);
-
       } catch (error) {
         throw error; // Relanzamos para que el componente de Login pueda manejar el fallo
       }
@@ -110,7 +112,7 @@ export const AuthContextProvider = ({ children }: AuthContextProviderProps) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isLoading, login, logout }}
+      value={{ user, token, isLoading, login, logout, checkUserSession }}
     >
       {isLoading ? <div>Loading...</div> : children}
     </AuthContext.Provider>

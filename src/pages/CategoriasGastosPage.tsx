@@ -14,7 +14,7 @@ type Categoria = {
   nombre: string;
   descripcion: string;
   tipoCategoria: "GASTO";
-  cantidadGastos: number;
+  cantidadTransacciones: number;
   fechaCreacion: string;
   fechaModificacion: string;
 };
@@ -327,7 +327,7 @@ export default function CategoriasGastosPage() {
                         <td className="px-4 py-2">{cat.nombre}</td>
                         <td className="px-4 py-2">{cat.descripcion}</td>
                         <td className="px-4 py-2 text-center">
-                          {cat.cantidadGastos}
+                          {cat.cantidadTransacciones}
                         </td>
                         <td className="px-4 py-2">
                           {formatearFecha(cat.fechaCreacion)}

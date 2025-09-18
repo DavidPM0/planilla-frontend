@@ -8,7 +8,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { useNavigate } from "react-router-dom";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, use } from "react";
 import profileImage from "../assets/profile.jpg";
 import { useAuth } from "../context/auth-context";
 
@@ -29,7 +29,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const profileRef = useRef(null);
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   // Cierra el dropdown al hacer clic fuera
   useEffect(() => {
@@ -96,8 +96,12 @@ export default function Sidebar() {
               className="w-9 h-9 rounded-full object-cover border border-gray-300"
             />
             <div className="text-left">
-              <p className="text-sm font-semibold">Clarissa Dexter</p>
-              <p className="text-xs text-gray-500">Chief Finance Officer</p>
+              <p className="text-sm font-semibold">
+                {user?.nombres} {user?.apellidoPaterno}
+              </p>
+              <p className="text-xs text-gray-500">
+                {user?.perfiles.join(", ")}
+              </p>
             </div>
           </button>
 
