@@ -73,23 +73,93 @@ function EditContratoModal({
     tipoContrato: contrato.tipoContrato,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{
+    fechas?: string;
+    monto?: string;
+  }>({});
+
+  // Función para validar las fechas
+  const validateDates = (
+    fechaInicio: string,
+    fechaFin: string
+  ): string | null => {
+    if (!fechaInicio) return null;
+    if (!fechaFin) return null; // Fecha fin es opcional
+
+    const inicio = new Date(fechaInicio);
+    const fin = new Date(fechaFin);
+
+    if (inicio > fin) {
+      return "La fecha de inicio no puede ser posterior a la fecha de fin";
+    }
+    return null;
+  };
+
+  // Función para validar el monto
+  const validateMonto = (monto: string | number): string | null => {
+    const numero = Number(monto);
+    if (isNaN(numero)) return "El monto debe ser un número válido";
+    if (numero < 0) return "El monto no puede ser negativo";
+    if (numero > 999999.99) return "El monto no puede exceder S/ 999,999.99";
+    return null;
+  };
 
   if (!show) return null;
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Validaciones en tiempo real
+    const newErrors = { ...validationErrors };
+
+    if (name === "fechaInicio" || name === "fechaFin") {
+      const fechaInicio = name === "fechaInicio" ? value : formData.fechaInicio;
+      const fechaFin = name === "fechaFin" ? value : formData.fechaFin;
+      const fechaError = validateDates(fechaInicio, fechaFin);
+      if (fechaError) {
+        newErrors.fechas = fechaError;
+      } else {
+        delete newErrors.fechas;
+      }
+    }
+
+    if (name === "sueldoBase") {
+      const montoError = validateMonto(value);
+      if (montoError) {
+        newErrors.monto = montoError;
+      } else {
+        delete newErrors.monto;
+      }
+    }
+
+    setValidationErrors(newErrors);
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    // Validaciones antes de enviar
+    const fechaError = validateDates(formData.fechaInicio, formData.fechaFin);
+    const montoError = validateMonto(formData.sueldoBase);
+
+    if (fechaError || montoError) {
+      setValidationErrors({
+        fechas: fechaError || undefined,
+        monto: montoError || undefined,
+      });
+      return;
+    }
+
     setIsSaving(true);
     await onSave({
       ...formData,
       sueldoBase: Number(formData.sueldoBase),
     });
     setIsSaving(false);
+    setValidationErrors({}); // Limpiar errores después de guardar exitosamente
   };
 
   return (
@@ -103,7 +173,9 @@ function EditContratoModal({
               name="fechaInicio"
               value={formData.fechaInicio}
               onChange={handleChange}
-              className="w-full border border-slate-300 rounded-md p-2 text-sm"
+              className={`w-full border rounded-md p-2 text-sm ${
+                validationErrors.fechas ? "border-red-500" : "border-slate-300"
+              }`}
               required
             />
             <input
@@ -111,7 +183,9 @@ function EditContratoModal({
               name="fechaFin"
               value={formData.fechaFin}
               onChange={handleChange}
-              className="w-full border border-slate-300 rounded-md p-2 text-sm"
+              className={`w-full border rounded-md p-2 text-sm ${
+                validationErrors.fechas ? "border-red-500" : "border-slate-300"
+              }`}
             />
             <input
               type="number"
@@ -120,7 +194,9 @@ function EditContratoModal({
               value={formData.sueldoBase}
               onChange={handleChange}
               placeholder="Sueldo Base"
-              className="w-full border border-slate-300 rounded-md p-2 text-sm"
+              className={`w-full border rounded-md p-2 text-sm ${
+                validationErrors.monto ? "border-red-500" : "border-slate-300"
+              }`}
               required
             />
             <select
@@ -141,6 +217,23 @@ function EditContratoModal({
               className="w-full border border-slate-300 rounded-md p-2 text-sm"
             />
           </div>
+
+          {/* Mensajes de error en el modal */}
+          {(validationErrors.fechas || validationErrors.monto) && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              {validationErrors.fechas && (
+                <p className="text-red-600 text-sm mb-1">
+                  ⚠️ {validationErrors.fechas}
+                </p>
+              )}
+              {validationErrors.monto && (
+                <p className="text-red-600 text-sm">
+                  ⚠️ {validationErrors.monto}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex justify-end gap-4 pt-4">
             <button
               type="button"
@@ -151,7 +244,7 @@ function EditContratoModal({
             </button>
             <button
               type="submit"
-              disabled={isSaving}
+              disabled={isSaving || Object.keys(validationErrors).length > 0}
               className="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-50"
             >
               {isSaving ? "Guardando..." : "Guardar Cambios"}
@@ -186,8 +279,38 @@ export default function ContratosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<{
+    fechas?: string;
+    monto?: string;
+  }>({});
 
   const { get, post, patch } = useFetchApi();
+
+  // Función para validar las fechas
+  const validateDates = (
+    fechaInicio: string,
+    fechaFin: string
+  ): string | null => {
+    if (!fechaInicio) return null;
+    if (!fechaFin) return null; // Fecha fin es opcional
+
+    const inicio = new Date(fechaInicio);
+    const fin = new Date(fechaFin);
+
+    if (inicio > fin) {
+      return "La fecha de inicio no puede ser posterior a la fecha de fin";
+    }
+    return null;
+  };
+
+  // Función para validar el monto
+  const validateMonto = (monto: string): string | null => {
+    const numero = Number(monto);
+    if (isNaN(numero)) return "El monto debe ser un número válido";
+    if (numero < 0) return "El monto no puede ser negativo";
+    if (numero > 999999.99) return "El monto no puede exceder S/ 999,999.99";
+    return null;
+  };
 
   const fetchData = useCallback(async () => {
     if (!trabajadorId) return;
@@ -216,12 +339,51 @@ export default function ContratosPage() {
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Validaciones en tiempo real
+    const newErrors = { ...validationErrors };
+
+    if (name === "fechaInicio" || name === "fechaFin") {
+      const fechaInicio = name === "fechaInicio" ? value : formData.fechaInicio;
+      const fechaFin = name === "fechaFin" ? value : formData.fechaFin;
+      const fechaError = validateDates(fechaInicio, fechaFin);
+      if (fechaError) {
+        newErrors.fechas = fechaError;
+      } else {
+        delete newErrors.fechas;
+      }
+    }
+
+    if (name === "sueldoBase") {
+      const montoError = validateMonto(value);
+      if (montoError) {
+        newErrors.monto = montoError;
+      } else {
+        delete newErrors.monto;
+      }
+    }
+
+    setValidationErrors(newErrors);
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!trabajadorId) return;
+
+    // Validaciones antes de enviar
+    const fechaError = validateDates(formData.fechaInicio, formData.fechaFin);
+    const montoError = validateMonto(formData.sueldoBase);
+
+    if (fechaError || montoError) {
+      setValidationErrors({
+        fechas: fechaError || undefined,
+        monto: montoError || undefined,
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload = {
@@ -238,6 +400,7 @@ export default function ContratosPage() {
       alert("¡Contrato creado exitosamente!");
       await fetchData();
       setFormData(initialFormState);
+      setValidationErrors({}); // Limpiar errores después de crear exitosamente
     } catch (err: any) {
       const errorMessage =
         err.response?.data?.message || "Error al crear el contrato.";
@@ -318,7 +481,11 @@ export default function ContratosPage() {
                 name="fechaInicio"
                 value={formData.fechaInicio}
                 onChange={handleInputChange}
-                className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                className={`w-full border rounded-md p-2 text-sm ${
+                  validationErrors.fechas
+                    ? "border-red-500"
+                    : "border-slate-300"
+                }`}
                 required
               />
             </div>
@@ -335,7 +502,11 @@ export default function ContratosPage() {
                 name="fechaFin"
                 value={formData.fechaFin}
                 onChange={handleInputChange}
-                className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                className={`w-full border rounded-md p-2 text-sm ${
+                  validationErrors.fechas
+                    ? "border-red-500"
+                    : "border-slate-300"
+                }`}
               />
             </div>
             <div>
@@ -352,7 +523,9 @@ export default function ContratosPage() {
                 name="sueldoBase"
                 value={formData.sueldoBase}
                 onChange={handleInputChange}
-                className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                className={`w-full border rounded-md p-2 text-sm ${
+                  validationErrors.monto ? "border-red-500" : "border-slate-300"
+                }`}
                 placeholder="Ej: 1500.00"
                 required
               />
@@ -376,9 +549,26 @@ export default function ContratosPage() {
               </select>
             </div>
           </div>
+
+          {/* Mensajes de error */}
+          {(validationErrors.fechas || validationErrors.monto) && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              {validationErrors.fechas && (
+                <p className="text-red-600 text-sm mb-1">
+                  ⚠️ {validationErrors.fechas}
+                </p>
+              )}
+              {validationErrors.monto && (
+                <p className="text-red-600 text-sm">
+                  ⚠️ {validationErrors.monto}
+                </p>
+              )}
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || Object.keys(validationErrors).length > 0}
             className="flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-600 transition disabled:opacity-50"
           >
             <PlusIcon className="w-5 h-5" />
