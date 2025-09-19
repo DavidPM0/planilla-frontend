@@ -7,6 +7,75 @@ import ModalAjuste, {
 import ModalHistorial from "../components/planilla-components/ModalHistorial";
 import TablaPlanilla from "../components/planilla-components/TablaPlanilla";
 import useFetchApi from "../hooks/use-fetch";
+import { toast } from "sonner";
+
+// Helper function for consistent error handling
+const getErrorMessage = (err: any, defaultMessage: string): string => {
+  // Para errores 404 específicos de planillas, no mostrar como error crítico
+  if (
+    err?.response?.status === 404 &&
+    err?.response?.data?.message?.includes("No se encontraron planillas")
+  ) {
+    return `ℹ️ ${err.response.data.message}`;
+  }
+
+  const errorMessage =
+    err?.response?.data?.message || err?.message || defaultMessage;
+  console.error("API Error:", err);
+  return `❌ Error: ${errorMessage}`;
+};
+
+// Helper function for operations that might fail gracefully
+const handleOperationWithToast = async (
+  operation: () => Promise<any>,
+  messages: {
+    loading: string;
+    success: string;
+    defaultError: string;
+  }
+) => {
+  const operationPromise = operation();
+
+  toast.promise(operationPromise, {
+    loading: messages.loading,
+    success: () => `✅ ${messages.success}`,
+    error: (err) => getErrorMessage(err, messages.defaultError),
+  });
+
+  return operationPromise;
+};
+
+// Helper function to create specific planilla types
+const createSpecificPlanilla = async (
+  periodo: number,
+  mes: number,
+  anio: number,
+  post: any,
+  fetchPlanilla: () => Promise<void>
+) => {
+  const endpoints = {
+    0: "/planillas/procesar-mensual",
+    1: "/planillas/procesar-primera-quincena",
+    2: "/planillas/procesar-segunda-quincena",
+  };
+
+  const nombres = {
+    0: "Mensual",
+    1: "Primera Quincena",
+    2: "Segunda Quincena",
+  };
+
+  const endpoint = endpoints[periodo as keyof typeof endpoints];
+  const nombre = nombres[periodo as keyof typeof nombres];
+
+  if (!endpoint) {
+    throw new Error(`Período no válido: ${periodo}`);
+  }
+
+  await post(endpoint, { mes, anio });
+  await fetchPlanilla();
+  return `Planilla ${nombre} creada exitosamente`;
+};
 
 export type DetallePlanillaAPI = {
   id: number;
@@ -51,7 +120,6 @@ export default function PlanillaPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [planillas, setPlanillas] = useState<PlanillaAPI[]>([]);
-  const [planillasExisten, setPlanillasExisten] = useState(false);
   const [planillaSeleccionada, setPlanillaSeleccionada] =
     useState<PlanillaAPI | null>(null);
 
@@ -78,7 +146,6 @@ export default function PlanillaPage() {
       );
 
       setPlanillas(data);
-      setPlanillasExisten(data.length > 0);
 
       // Seleccionar la primera planilla por defecto
       if (data.length > 0) {
@@ -89,14 +156,12 @@ export default function PlanillaPage() {
     } catch (err: any) {
       console.error("Error fetching planillas:", err);
       if (err.response?.status === 404) {
-        setPlanillasExisten(false);
         setPlanillas([]);
         setPlanillaSeleccionada(null);
       } else {
         setError(
           err.response?.data?.message || "Error al cargar las planillas."
         );
-        setPlanillasExisten(false);
       }
     } finally {
       setIsLoading(false);
@@ -112,7 +177,7 @@ export default function PlanillaPage() {
 
   const handleRegenerarPlanilla = async () => {
     if (!planillaSeleccionada) {
-      alert("Debe seleccionar una planilla para regenerar");
+      toast.error("Debe seleccionar una planilla para regenerar");
       return;
     }
 
@@ -122,7 +187,7 @@ export default function PlanillaPage() {
     );
 
     if (!motivo || motivo.trim() === "") {
-      alert("Debe proporcionar un motivo para la regeneración");
+      toast.error("Debe proporcionar un motivo para la regeneración");
       return;
     }
 
@@ -141,74 +206,45 @@ export default function PlanillaPage() {
     )
       return;
 
-    setIsLoading(true);
-    try {
-      const response = (await post(`/planillas/regenerar/${planilla.id}`, {
-        motivoReemplazo: motivo,
-      })) as { mensaje: string };
-      alert(`✅ ${response.mensaje}`);
-      await fetchPlanilla();
-    } catch (err: any) {
-      alert(
-        `❌ Error: ${
-          err.response?.data?.message || "No se pudo regenerar la planilla."
-        }`
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Función legacy mantenida por compatibilidad (deprecada)
-  const handleProcesarPlanilla = async () => {
-    const monthName = new Date(selectedYear, selectedMonth - 1).toLocaleString(
-      "es-PE",
-      { month: "long" }
+    await handleOperationWithToast(
+      async () => {
+        const response: any = await post(
+          `/planillas/regenerar/${planilla.id}`,
+          {
+            motivoReemplazo: motivo,
+          }
+        );
+        await fetchPlanilla();
+        return response?.mensaje || "Planilla regenerada correctamente";
+      },
+      {
+        loading: "Regenerando planilla...",
+        success: "Planilla regenerada correctamente",
+        defaultError: "No se pudo regenerar la planilla.",
+      }
     );
-    if (
-      !window.confirm(
-        `¿Desea completar las planillas faltantes para ${monthName} de ${selectedYear}?\n\nSe crearán automáticamente los períodos que no existan (Mensual, Primera Quincena, Segunda Quincena) según los tipos de contratos disponibles.`
-      )
-    )
-      return;
-
-    setIsLoading(true);
-    try {
-      await post("/planillas/procesar", {
-        anio: selectedYear,
-        mes: selectedMonth,
-      });
-      alert("¡Planillas completadas exitosamente!");
-      await fetchPlanilla();
-    } catch (err: any) {
-      alert(
-        `Error: ${
-          err.response?.data?.message || "No se pudo completar las planillas."
-        }`
-      );
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleGuardarAjuste = async (payload: Omit<AjustePayload, "tipo">) => {
     if (!ajusteVisible) return;
     const { detalle, tipo } = ajusteVisible;
-    try {
-      await post(`/planillas/detalles/${detalle.id}/ajustes`, {
-        ...payload,
-        tipo,
-      });
-      alert("¡Ajuste guardado exitosamente!");
-      setAjusteVisible(null);
-      await fetchPlanilla();
-    } catch (err: any) {
-      alert(
-        `Error: ${
-          err.response?.data?.message || "No se pudo guardar el ajuste."
-        }`
-      );
-    }
+
+    await handleOperationWithToast(
+      async () => {
+        await post(`/planillas/detalles/${detalle.id}/ajustes`, {
+          ...payload,
+          tipo,
+        });
+        setAjusteVisible(null);
+        await fetchPlanilla();
+        return "Ajuste guardado exitosamente";
+      },
+      {
+        loading: "Guardando ajuste...",
+        success: "Ajuste guardado exitosamente!",
+        defaultError: "No se pudo guardar el ajuste.",
+      }
+    );
   };
 
   const handleMarcarPago = async (detalleId: number) => {
@@ -218,18 +254,19 @@ export default function PlanillaPage() {
       )
     )
       return;
-    try {
-      await patch(`/planillas/detalles/${detalleId}/pagar`, {});
-      alert("¡Pago registrado exitosamente!");
-      await fetchPlanilla();
-    } catch (err: any) {
-      alert(
-        `Error: ${
-          err.response?.data?.message ||
-          "No se pudo actualizar el estado del pago."
-        }`
-      );
-    }
+
+    await handleOperationWithToast(
+      async () => {
+        await patch(`/planillas/detalles/${detalleId}/pagar`, {});
+        await fetchPlanilla();
+        return "Pago registrado exitosamente";
+      },
+      {
+        loading: "Registrando pago...",
+        success: "Pago registrado exitosamente!",
+        defaultError: "No se pudo actualizar el estado del pago.",
+      }
+    );
   };
 
   const handleCambiarEstado = async (
@@ -243,21 +280,24 @@ export default function PlanillaPage() {
       return;
     }
 
-    try {
-      await patch(`/planillas/${planillaId}/estado`, { estado: nuevoEstado });
-      alert(
-        `¡Planilla ${estadoTexto
+    await handleOperationWithToast(
+      async () => {
+        await patch(`/planillas/${planillaId}/estado`, { estado: nuevoEstado });
+        await fetchPlanilla();
+        return `Planilla ${estadoTexto
           .replace("procesar", "procesada")
-          .replace("marcar como pagada", "marcada como pagada")} exitosamente!`
-      );
-      await fetchPlanilla();
-    } catch (err: any) {
-      alert(
-        `Error: ${
-          err.response?.data?.message || `Error al ${estadoTexto} la planilla`
-        }`
-      );
-    }
+          .replace("marcar como pagada", "marcada como pagada")} exitosamente`;
+      },
+      {
+        loading: `${
+          nuevoEstado === "PROCESADA" ? "Procesando" : "Actualizando"
+        } planilla...`,
+        success: `Planilla ${estadoTexto
+          .replace("procesar", "procesada")
+          .replace("marcar como pagada", "marcada como pagada")} exitosamente!`,
+        defaultError: `Error al ${estadoTexto} la planilla`,
+      }
+    );
   };
 
   return (
@@ -274,12 +314,6 @@ export default function PlanillaPage() {
         setSelectedYear={setSelectedYear}
         selectedMonth={selectedMonth}
         setSelectedMonth={setSelectedMonth}
-        busqueda={busqueda}
-        setBusqueda={setBusqueda}
-        onProcesar={handleProcesarPlanilla}
-        onRegenerarPlanilla={handleRegenerarPlanilla}
-        planillaProcesada={planillasExisten}
-        planillaSeleccionada={planillaSeleccionada}
         isLoading={isLoading}
       />
 
@@ -426,34 +460,77 @@ export default function PlanillaPage() {
                     <button
                       onClick={async (e) => {
                         e.stopPropagation();
-                        try {
-                          setIsLoading(true);
-                          await post("/planillas/procesar", {
-                            mes: selectedMonth,
-                            anio: selectedYear,
-                          });
-                          // Recargar planillas después de crear
-                          await fetchPlanilla();
-                        } catch (error: any) {
-                          console.error("Error al completar planillas:", error);
-                          alert(
-                            error.message ||
-                              "Error al completar las planillas faltantes"
-                          );
-                        } finally {
-                          setIsLoading(false);
-                        }
+
+                        await handleOperationWithToast(
+                          async () => {
+                            return await createSpecificPlanilla(
+                              periodoInfo.periodo,
+                              selectedMonth,
+                              selectedYear,
+                              post,
+                              fetchPlanilla
+                            );
+                          },
+                          {
+                            loading: `Creando planilla ${periodoInfo.nombre}...`,
+                            success: `Planilla ${periodoInfo.nombre} creada exitosamente!`,
+                            defaultError: `Error al crear la planilla ${periodoInfo.nombre}`,
+                          }
+                        );
                       }}
                       className="w-full px-3 py-2 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
-                      disabled={isLoading}
                     >
-                      {isLoading ? "Creando..." : "Crear Planilla"}
+                      Crear {periodoInfo.nombre}
                     </button>
                   </>
                 )}
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Botón de Regenerar Planilla - Solo cuando hay una planilla seleccionada */}
+      {planillaSeleccionada && (
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+          <h3 className="text-sm font-semibold text-slate-800 mb-3">
+            🔄 Opciones de Planilla Seleccionada
+          </h3>
+          <button
+            onClick={handleRegenerarPlanilla}
+            disabled={isLoading}
+            className="flex items-center justify-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-600 transition disabled:opacity-50"
+          >
+            🔄 Regenerar Planilla
+          </button>
+          <p className="text-xs text-slate-500 mt-2">
+            Regenera la planilla seleccionada "
+            {planillaSeleccionada.planilla.periodo === 0
+              ? "Mensual"
+              : planillaSeleccionada.planilla.periodo === 1
+              ? "Primera Quincena"
+              : "Segunda Quincena"}
+            " con cálculos actualizados
+          </p>
+        </div>
+      )}
+
+      {/* Búsqueda - pegada a la tabla */}
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-slate-800">
+            Detalles de Planilla
+          </h3>
+          <div className="w-64">
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              disabled={isLoading}
+              placeholder="Buscar por nombre, cuenta o banco"
+              className="block w-full pl-3 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
+            />
+          </div>
         </div>
       </div>
 

@@ -7,7 +7,7 @@ import {
   UserIcon,
 } from "@heroicons/react/24/outline";
 
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import profileImage from "../assets/profile.jpg";
 import { useAuth } from "../context/auth-context";
@@ -62,14 +62,20 @@ export default function Sidebar() {
       <div>
         <nav className="px-4 py-6 space-y-2">
           {navigation.map((item) => (
-            <button
+            <NavLink
               key={item.name}
-              onClick={() => navigate(item.href)}
-              className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-indigo-100 hover:text-[#6366f1] transition cursor-pointer"
+              to={item.href}
+              className={({ isActive }) =>
+                `w-full flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md transition cursor-pointer ${
+                  isActive
+                    ? "bg-indigo-100 text-[#6366f1]"
+                    : "text-gray-700 hover:bg-indigo-100 hover:text-[#6366f1]"
+                }`
+              }
             >
               <item.icon className="w-5 h-5" />
               {item.name}
-            </button>
+            </NavLink>
           ))}
         </nav>
       </div>
@@ -77,13 +83,21 @@ export default function Sidebar() {
       {/* Sección inferior (cuenta) */}
       <div className="px-4 py-6 space-y-2">
         {/* Botón de usuarios */}
-        <button
-          onClick={() => navigate("/usuarios")}
-          className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-indigo-100 hover:text-[#6366f1] transition cursor-pointer"
-        >
-          <UserIcon className="w-5 h-5" />
-          Usuarios
-        </button>
+        {user?.perfiles && user.perfiles.includes("administrador") && (
+          <NavLink
+            to="/usuarios"
+            className={({ isActive }) =>
+              `w-full flex items-center gap-3 px-4 py-2 text-sm font-medium rounded-md transition cursor-pointer ${
+                isActive
+                  ? "bg-indigo-100 text-[#6366f1]"
+                  : "text-gray-700 hover:bg-indigo-100 hover:text-[#6366f1]"
+              }`
+            }
+          >
+            <UserIcon className="w-5 h-5" />
+            Usuarios
+          </NavLink>
+        )}
 
         {/* Botón de perfil con dropdown */}
         <div className="relative" ref={profileRef}>

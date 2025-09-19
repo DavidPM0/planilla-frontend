@@ -1,5 +1,3 @@
-import { PlusIcon } from "@heroicons/react/24/outline";
-
 // Constantes (puedes importarlas de un archivo compartido)
 const MONTHS = [
   "Enero",
@@ -28,12 +26,6 @@ interface FiltrosPlanillaProps {
   setSelectedYear: (year: number) => void;
   selectedMonth: number;
   setSelectedMonth: (month: number) => void;
-  busqueda: string;
-  setBusqueda: (search: string) => void;
-  onProcesar: () => void;
-  onRegenerarPlanilla: () => void;
-  planillaProcesada: boolean;
-  planillaSeleccionada?: any;
   isLoading: boolean;
 }
 
@@ -42,12 +34,6 @@ export default function FiltrosPlanilla({
   setSelectedYear,
   selectedMonth,
   setSelectedMonth,
-  busqueda,
-  setBusqueda,
-  onProcesar,
-  onRegenerarPlanilla,
-  planillaProcesada,
-  planillaSeleccionada,
   isLoading,
 }: FiltrosPlanillaProps) {
   return (
@@ -85,63 +71,6 @@ export default function FiltrosPlanilla({
               {month}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Botones de acción para completar planillas */}
-      <div className="flex flex-col gap-4">
-        {!planillaProcesada && !isLoading ? (
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">
-              ⚡ Completar Planillas
-            </h3>
-            <button
-              onClick={onProcesar}
-              disabled={isLoading}
-              className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-md text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50 w-full"
-            >
-              <PlusIcon className="w-5 h-5" />
-              {isLoading ? "Procesando..." : "Completar Planillas Faltantes"}
-            </button>
-            <p className="text-xs text-slate-500 mt-2 text-center">
-              Crea automáticamente los períodos faltantes (Mensual, Primera
-              Quincena, Segunda Quincena) según los contratos disponibles
-            </p>
-          </div>
-        ) : planillaProcesada && planillaSeleccionada ? (
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">
-              🔄 Opciones de Planilla Seleccionada
-            </h3>
-            <div className="flex gap-3">
-              <button
-                onClick={onRegenerarPlanilla}
-                disabled={isLoading}
-                className="flex items-center justify-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-600 transition disabled:opacity-50"
-              >
-                🔄 Regenerar Planilla
-              </button>
-            </div>
-            <p className="text-xs text-slate-500 mt-2">
-              Regenera la planilla seleccionada con cálculos actualizados
-            </p>
-          </div>
-        ) : (
-          <div className="w-full h-4 hidden md:block"></div>
-        )}
-
-        {/* Búsqueda */}
-        <div className="flex justify-end">
-          <div className="w-full md:w-64">
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              disabled={isLoading}
-              placeholder="Buscar por nombre, cuenta o banco"
-              className="block w-full pl-3 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
-            />
-          </div>
         </div>
       </div>
     </>
