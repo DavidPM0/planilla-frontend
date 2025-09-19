@@ -30,10 +30,7 @@ interface FiltrosPlanillaProps {
   setSelectedMonth: (month: number) => void;
   busqueda: string;
   setBusqueda: (search: string) => void;
-  onProcesar: () => void; // Legacy function
-  onProcesarPrimeraQuincena: () => void;
-  onProcesarSegundaQuincena: () => void;
-  onProcesarMensual: () => void;
+  onProcesar: () => void;
   onRegenerarPlanilla: () => void;
   planillaProcesada: boolean;
   planillaSeleccionada?: any;
@@ -47,10 +44,7 @@ export default function FiltrosPlanilla({
   setSelectedMonth,
   busqueda,
   setBusqueda,
-  onProcesar, // Legacy
-  onProcesarPrimeraQuincena,
-  onProcesarSegundaQuincena,
-  onProcesarMensual,
+  onProcesar,
   onRegenerarPlanilla,
   planillaProcesada,
   planillaSeleccionada,
@@ -94,55 +88,25 @@ export default function FiltrosPlanilla({
         </div>
       </div>
 
-      {/* Botones de acción para generar planillas */}
+      {/* Botones de acción para completar planillas */}
       <div className="flex flex-col gap-4">
         {!planillaProcesada && !isLoading ? (
           <div className="bg-white rounded-lg border border-slate-200 p-4">
             <h3 className="text-sm font-semibold text-slate-800 mb-3">
-              🎯 Generar Planillas por Tipo
+              ⚡ Completar Planillas
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <button
-                onClick={onProcesarPrimeraQuincena}
-                disabled={isLoading}
-                className="flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-600 transition disabled:opacity-50"
-              >
-                <PlusIcon className="w-4 h-4" />
-                Primera Quincena (1-15)
-              </button>
-
-              <button
-                onClick={onProcesarSegundaQuincena}
-                disabled={isLoading}
-                className="flex items-center justify-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-600 transition disabled:opacity-50"
-              >
-                <PlusIcon className="w-4 h-4" />
-                Segunda Quincena (16-30)
-              </button>
-
-              <button
-                onClick={onProcesarMensual}
-                disabled={isLoading}
-                className="flex items-center justify-center gap-2 bg-green-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-600 transition disabled:opacity-50"
-              >
-                <PlusIcon className="w-4 h-4" />
-                Mensual (Todo el mes)
-              </button>
-            </div>
-
-            <div className="mt-3 pt-3 border-t border-slate-200">
-              <button
-                onClick={onProcesar}
-                disabled={isLoading}
-                className="flex items-center justify-center gap-2 bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-600 transition disabled:opacity-50 w-full"
-              >
-                <PlusIcon className="w-4 h-4" />
-                {isLoading ? "Procesando..." : "🔄 Procesar Todas (Legacy)"}
-              </button>
-              <p className="text-xs text-slate-500 mt-1 text-center">
-                ⚠️ Método antiguo - Genera todas las planillas de una vez
-              </p>
-            </div>
+            <button
+              onClick={onProcesar}
+              disabled={isLoading}
+              className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-md text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50 w-full"
+            >
+              <PlusIcon className="w-5 h-5" />
+              {isLoading ? "Procesando..." : "Completar Planillas Faltantes"}
+            </button>
+            <p className="text-xs text-slate-500 mt-2 text-center">
+              Crea automáticamente los períodos faltantes (Mensual, Primera
+              Quincena, Segunda Quincena) según los contratos disponibles
+            </p>
           </div>
         ) : planillaProcesada && planillaSeleccionada ? (
           <div className="bg-white rounded-lg border border-slate-200 p-4">
