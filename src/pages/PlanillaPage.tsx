@@ -73,13 +73,9 @@ export default function PlanillaPage() {
       });
       if (busqueda.trim()) params.append("buscar", busqueda.trim());
 
-      console.log("Fetching planillas with params:", params.toString());
-
       const data = await get<PlanillaAPI[]>(
         `/planillas/detalles?${params.toString()}`
       );
-
-      console.log("Received data:", data);
 
       setPlanillas(data);
       setPlanillasExisten(data.length > 0);
@@ -87,7 +83,6 @@ export default function PlanillaPage() {
       // Seleccionar la primera planilla por defecto
       if (data.length > 0) {
         setPlanillaSeleccionada(data[0]);
-        console.log("Selected first planilla:", data[0]);
       } else {
         setPlanillaSeleccionada(null);
       }
@@ -267,12 +262,6 @@ export default function PlanillaPage() {
 
   return (
     <div className="p-6 bg-[#f9fafb] flex flex-col space-y-6 min-h-screen">
-      {/* Debug info */}
-      <div className="bg-gray-100 p-2 text-xs">
-        Debug: planillas={planillas.length}, seleccionada=
-        {planillaSeleccionada?.planilla?.id || "none"}
-      </div>
-
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Planilla</h1>
         <p className="text-slate-600 text-sm mb-4">
