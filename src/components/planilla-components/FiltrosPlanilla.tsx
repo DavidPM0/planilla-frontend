@@ -15,9 +15,14 @@ const MONTHS = [
   "Noviembre",
   "Diciembre",
 ];
+// Lógica simple: desde 2025 hacia adelante, preservando siempre el año base
 const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
-
+const BASE_YEAR = 2025; // Año base que NUNCA desaparece
+const endYear = Math.max(currentYear + 2, 2035); // Al menos hasta 2035
+const YEARS = Array.from(
+  { length: endYear - BASE_YEAR + 1 },
+  (_, i) => BASE_YEAR + i
+);
 interface FiltrosPlanillaProps {
   selectedYear: number;
   setSelectedYear: (year: number) => void;

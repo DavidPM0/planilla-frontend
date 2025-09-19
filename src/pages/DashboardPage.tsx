@@ -47,13 +47,20 @@ const MONTHS = [
   "Diciembre",
 ];
 
-// Años disponibles (generados dinámicamente)
+// Lógica simple: desde 2025 hacia adelante, preservando siempre el año base
 const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - 4 + i);
+const BASE_YEAR = 2025; // Año base que NUNCA desaparece
+const endYear = Math.max(currentYear + 2, 2035); // Al menos hasta 2035
+const YEARS = Array.from(
+  { length: endYear - BASE_YEAR + 1 },
+  (_, i) => BASE_YEAR + i
+);
 
 export default function DashboardPage() {
   const today = new Date();
-  const [selectedYear, setSelectedYear] = useState(currentYear);
+  // Usar 2025 como año por defecto si estamos antes, o el año actual si es 2025 o posterior
+  const defaultYear = currentYear >= 2025 ? currentYear : 2025;
+  const [selectedYear, setSelectedYear] = useState(defaultYear);
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
 
   // --- ESTADOS PARA LOS DATOS DE LA API ---
