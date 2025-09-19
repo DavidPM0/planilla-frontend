@@ -8,7 +8,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { useNavigate } from "react-router-dom";
-import { useState, useRef, useEffect, use } from "react";
+import { useState, useRef, useEffect } from "react";
 import profileImage from "../assets/profile.jpg";
 import { useAuth } from "../context/auth-context";
 
@@ -23,6 +23,7 @@ const navigation = [
   { name: "Ingresos", icon: ArrowDownTrayIcon, href: "/ingresos" },
   { name: "Categorías de Gastos", icon: TagIcon, href: "/categorias-gastos" },
   { name: "Gastos", icon: ArrowUpTrayIcon, href: "/gastos" },
+  { name: "Trabajadores", icon: ArrowUpTrayIcon, href: "/trabajadores" },
 ];
 
 export default function Sidebar() {

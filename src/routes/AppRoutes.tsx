@@ -14,6 +14,8 @@ import PublicRoute from "../components/routes/public-route";
 import NotFoundPage from "../pages/not-found";
 import UnauthorizedPage from "../pages/unauthorized";
 import ProtectedRoute from "../components/routes/protected-route";
+import TrabajadoresPage from "../pages/TrabajadoresPage";
+import ContratosPage from "../pages/ContratosPage";
 
 export default function AppRoutes() {
   return (
@@ -37,6 +39,11 @@ export default function AppRoutes() {
           <Route path="/categorias-gastos" element={<CategoriasGastosPage />} />
           <Route path="/gastos" element={<GastosPage />} />
           <Route path="/perfil" element={<VerPerfilPage />} />
+          <Route path="/trabajadores" element={<TrabajadoresPage />} />
+          <Route
+            path="/trabajadores/:trabajadorId/contratos"
+            element={<ContratosPage />}
+          />
         </Route>
       </Route>
 
