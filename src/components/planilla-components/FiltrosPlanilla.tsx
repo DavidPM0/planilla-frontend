@@ -25,8 +25,13 @@ interface FiltrosPlanillaProps {
   setSelectedMonth: (month: number) => void;
   busqueda: string;
   setBusqueda: (search: string) => void;
-  onProcesar: () => void;
+  onProcesar: () => void; // Legacy function
+  onProcesarPrimeraQuincena: () => void;
+  onProcesarSegundaQuincena: () => void;
+  onProcesarMensual: () => void;
+  onRegenerarPlanilla: () => void;
   planillaProcesada: boolean;
+  planillaSeleccionada?: any;
   isLoading: boolean;
 }
 
@@ -37,8 +42,13 @@ export default function FiltrosPlanilla({
   setSelectedMonth,
   busqueda,
   setBusqueda,
-  onProcesar,
+  onProcesar, // Legacy
+  onProcesarPrimeraQuincena,
+  onProcesarSegundaQuincena,
+  onProcesarMensual,
+  onRegenerarPlanilla,
   planillaProcesada,
+  planillaSeleccionada,
   isLoading,
 }: FiltrosPlanillaProps) {
   return (
@@ -79,30 +89,90 @@ export default function FiltrosPlanilla({
         </div>
       </div>
 
-      {/* Botón de acción principal y Búsqueda */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* Botones de acción para generar planillas */}
+      <div className="flex flex-col gap-4">
         {!planillaProcesada && !isLoading ? (
-          <button
-            onClick={onProcesar}
-            disabled={isLoading}
-            className="flex items-center justify-center gap-2 bg-green-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-600 transition disabled:opacity-50"
-          >
-            <PlusIcon className="w-5 h-5" />
-            {isLoading ? "Procesando..." : "Generar Planilla"}
-          </button>
+          <div className="bg-white rounded-lg border border-slate-200 p-4">
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">
+              🎯 Generar Planillas por Tipo
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <button
+                onClick={onProcesarPrimeraQuincena}
+                disabled={isLoading}
+                className="flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-600 transition disabled:opacity-50"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Primera Quincena (1-15)
+              </button>
+
+              <button
+                onClick={onProcesarSegundaQuincena}
+                disabled={isLoading}
+                className="flex items-center justify-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-600 transition disabled:opacity-50"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Segunda Quincena (16-30)
+              </button>
+
+              <button
+                onClick={onProcesarMensual}
+                disabled={isLoading}
+                className="flex items-center justify-center gap-2 bg-green-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-600 transition disabled:opacity-50"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Mensual (Todo el mes)
+              </button>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-slate-200">
+              <button
+                onClick={onProcesar}
+                disabled={isLoading}
+                className="flex items-center justify-center gap-2 bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-600 transition disabled:opacity-50 w-full"
+              >
+                <PlusIcon className="w-4 h-4" />
+                {isLoading ? "Procesando..." : "🔄 Procesar Todas (Legacy)"}
+              </button>
+              <p className="text-xs text-slate-500 mt-1 text-center">
+                ⚠️ Método antiguo - Genera todas las planillas de una vez
+              </p>
+            </div>
+          </div>
+        ) : planillaProcesada && planillaSeleccionada ? (
+          <div className="bg-white rounded-lg border border-slate-200 p-4">
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">
+              🔄 Opciones de Planilla Seleccionada
+            </h3>
+            <div className="flex gap-3">
+              <button
+                onClick={onRegenerarPlanilla}
+                disabled={isLoading}
+                className="flex items-center justify-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-600 transition disabled:opacity-50"
+              >
+                🔄 Regenerar Planilla
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Regenera la planilla seleccionada con cálculos actualizados
+            </p>
+          </div>
         ) : (
-          <div className="w-48 h-9 hidden md:block"></div>
+          <div className="w-full h-4 hidden md:block"></div>
         )}
 
-        <div className="w-full md:w-64">
-          <input
-            type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            disabled={isLoading}
-            placeholder="Buscar por nombre, cuenta o banco"
-            className="block w-full pl-3 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
-          />
+        {/* Búsqueda */}
+        <div className="flex justify-end">
+          <div className="w-full md:w-64">
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              disabled={isLoading}
+              placeholder="Buscar por nombre, cuenta o banco"
+              className="block w-full pl-3 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
+            />
+          </div>
         </div>
       </div>
     </>
