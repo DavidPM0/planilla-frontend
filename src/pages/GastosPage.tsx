@@ -188,7 +188,7 @@ export default function GastosPage() {
   // Usar 2025 como año por defecto si estamos antes, o el año actual si es 2025 o posterior
   const defaultYear = currentYear >= 2025 ? currentYear : 2025;
   const [selectedYear, setSelectedYear] = useState(defaultYear);
-  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
 
   const [gastos, setGastos] = useState<Transaccion[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
@@ -212,7 +212,7 @@ export default function GastosPage() {
       const params = new URLSearchParams({
         tipo: "GASTO",
         anio: selectedYear.toString(),
-        mes: (selectedMonth + 1).toString(),
+        mes: selectedMonth.toString(),
       });
       if (busqueda) {
         params.append("search", busqueda);
@@ -303,9 +303,9 @@ export default function GastosPage() {
             {MONTHS.map((month, index) => (
               <button
                 key={month}
-                onClick={() => setSelectedMonth(index)}
+                onClick={() => setSelectedMonth(index + 1)}
                 className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition text-center ${
-                  index === selectedMonth
+                  index + 1 === selectedMonth
                     ? "bg-indigo-500 text-white shadow"
                     : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-100"
                 }`}

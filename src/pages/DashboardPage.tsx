@@ -61,7 +61,7 @@ export default function DashboardPage() {
   // Usar 2025 como año por defecto si estamos antes, o el año actual si es 2025 o posterior
   const defaultYear = currentYear >= 2025 ? currentYear : 2025;
   const [selectedYear, setSelectedYear] = useState(defaultYear);
-  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
 
   // --- ESTADOS PARA LOS DATOS DE LA API ---
   const [resumenData, setResumenData] = useState<ResumenDashboard | null>(null);
@@ -77,7 +77,7 @@ export default function DashboardPage() {
     try {
       const params = new URLSearchParams({
         anio: selectedYear.toString(),
-        mes: (selectedMonth + 1).toString(), // +1 porque getMonth() es base 0 (Enero=0)
+        mes: selectedMonth.toString(), // selectedMonth ya es base 1 (Enero=1)
       });
 
       const [resumen, grafica] = await Promise.all([
@@ -189,9 +189,9 @@ export default function DashboardPage() {
           {MONTHS.map((month, index) => (
             <button
               key={month}
-              onClick={() => setSelectedMonth(index)}
+              onClick={() => setSelectedMonth(index + 1)}
               className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition text-center ${
-                index === selectedMonth
+                index + 1 === selectedMonth
                   ? "bg-indigo-500 text-white shadow"
                   : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-100"
               }`}
