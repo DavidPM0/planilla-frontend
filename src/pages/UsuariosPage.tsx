@@ -11,6 +11,7 @@ import {
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import useFetchApi from "../hooks/use-fetch";
+import { toast } from "sonner";
 
 import type { User } from "../context/auth-context"; // Usamos el tipo User del contexto
 import type { UpdateUserFormData } from "../components/edit-user-modal";
@@ -162,27 +163,33 @@ export default function UsuariosPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.perfilesIds.length === 0) {
-      alert("Por favor, seleccione un rol.");
+      toast.error("Por favor, seleccione un rol");
       return;
     }
+
     const payload = { ...formData };
     if (!payload.apellidoMaterno) {
       delete (payload as Partial<CreateUserFormData>).apellidoMaterno;
     }
-    try {
+
+    const createPromise = async () => {
       await post("/auth/register", payload);
-      alert("¡Usuario creado exitosamente!");
       await fetchData();
       setFormData(initialFormState);
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message || "Error al crear el usuario.";
-      alert(
-        `Error: ${
-          Array.isArray(errorMessage) ? errorMessage.join(", ") : errorMessage
-        }`
-      );
-    }
+    };
+
+    toast.promise(createPromise(), {
+      loading: "Creando usuario...",
+      success: `Usuario ${formData.nombres} ${formData.apellidoPaterno} creado exitosamente 🎉`,
+      error: (err) => {
+        const errorMessage =
+          err.response?.data?.message || "Error al crear el usuario";
+        const message = Array.isArray(errorMessage)
+          ? errorMessage.join(", ")
+          : errorMessage;
+        return `Error: ${message}`;
+      },
+    });
   };
 
   const handleEditClick = (user: User) => setEditingUser(user);
@@ -190,17 +197,25 @@ export default function UsuariosPage() {
 
   const handleUpdateUser = async (updatedData: UpdateUserFormData) => {
     if (!editingUser) return;
+
     const payload = { ...updatedData };
     if (!payload.apellidoMaterno) {
       delete (payload as Partial<UpdateUserFormData>).apellidoMaterno;
     }
-    try {
+
+    const updatePromise = async () => {
       await patch(`/auth/update-user/${editingUser.id}`, payload);
       setEditingUser(null);
       await fetchData();
-    } catch (err: any) {
-      alert("Error al actualizar el usuario.");
-    }
+    };
+
+    toast.promise(updatePromise(), {
+      loading: "Actualizando usuario...",
+      success: `Usuario ${updatedData.nombres || editingUser.nombres} ${
+        updatedData.apellidoPaterno || editingUser.apellidoPaterno
+      } actualizado exitosamente 🎉`,
+      error: "Error al actualizar el usuario",
+    });
   };
 
   const handleUserStatusChange = (userId: number, newStatus: boolean) => {
@@ -435,7 +450,8 @@ export default function UsuariosPage() {
                           <div className="flex justify-center gap-2">
                             <button
                               onClick={() => handleEditClick(user)}
-                              className="text-indigo-500 p-1"
+                              className="text-indigo-500 p-1 rounded-full hover:bg-indigo-100 transition"
+                              title="Editar usuario"
                             >
                               <PencilIcon className="w-5 h-5" />
                             </button>

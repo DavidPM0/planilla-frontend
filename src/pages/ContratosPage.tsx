@@ -11,6 +11,7 @@ import {
 } from "react";
 import { Link, useParams } from "react-router-dom";
 import useFetchApi from "../hooks/use-fetch";
+import { toast } from "sonner";
 
 // ============================================================================
 // UTILIDADES
@@ -21,6 +22,32 @@ function formatDateForAPI(dateString: string): string {
   const date = new Date(dateString + "T12:00:00");
   return date.toISOString();
 }
+
+// Función para validar fechas
+const validateDates = (
+  fechaInicio: string,
+  fechaFin: string
+): string | null => {
+  if (!fechaInicio) return null;
+  if (!fechaFin) return null; // Fecha fin es opcional
+
+  const inicio = new Date(fechaInicio);
+  const fin = new Date(fechaFin);
+
+  if (inicio > fin) {
+    return "La fecha de inicio no puede ser posterior a la fecha de fin";
+  }
+  return null;
+};
+
+// Función para validar el monto
+const validateMonto = (monto: string | number): string | null => {
+  const numero = Number(monto);
+  if (isNaN(numero)) return "El monto debe ser un número válido";
+  if (numero < 0) return "El monto no puede ser negativo";
+  if (numero > 999999.99) return "El monto no puede exceder S/ 999,999.99";
+  return null;
+};
 
 // ============================================================================
 type TrabajadorAPI = { id: number; nombres: string; apellidos: string };
@@ -77,32 +104,6 @@ function EditContratoModal({
     fechas?: string;
     monto?: string;
   }>({});
-
-  // Función para validar las fechas
-  const validateDates = (
-    fechaInicio: string,
-    fechaFin: string
-  ): string | null => {
-    if (!fechaInicio) return null;
-    if (!fechaFin) return null; // Fecha fin es opcional
-
-    const inicio = new Date(fechaInicio);
-    const fin = new Date(fechaFin);
-
-    if (inicio > fin) {
-      return "La fecha de inicio no puede ser posterior a la fecha de fin";
-    }
-    return null;
-  };
-
-  // Función para validar el monto
-  const validateMonto = (monto: string | number): string | null => {
-    const numero = Number(monto);
-    if (isNaN(numero)) return "El monto debe ser un número válido";
-    if (numero < 0) return "El monto no puede ser negativo";
-    if (numero > 999999.99) return "El monto no puede exceder S/ 999,999.99";
-    return null;
-  };
 
   if (!show) return null;
 
@@ -277,7 +278,6 @@ export default function ContratosPage() {
     null
   );
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<{
     fechas?: string;
@@ -285,32 +285,6 @@ export default function ContratosPage() {
   }>({});
 
   const { get, post, patch } = useFetchApi();
-
-  // Función para validar las fechas
-  const validateDates = (
-    fechaInicio: string,
-    fechaFin: string
-  ): string | null => {
-    if (!fechaInicio) return null;
-    if (!fechaFin) return null; // Fecha fin es opcional
-
-    const inicio = new Date(fechaInicio);
-    const fin = new Date(fechaFin);
-
-    if (inicio > fin) {
-      return "La fecha de inicio no puede ser posterior a la fecha de fin";
-    }
-    return null;
-  };
-
-  // Función para validar el monto
-  const validateMonto = (monto: string): string | null => {
-    const numero = Number(monto);
-    if (isNaN(numero)) return "El monto debe ser un número válido";
-    if (numero < 0) return "El monto no puede ser negativo";
-    if (numero > 999999.99) return "El monto no puede exceder S/ 999,999.99";
-    return null;
-  };
 
   const fetchData = useCallback(async () => {
     if (!trabajadorId) return;
@@ -384,8 +358,7 @@ export default function ContratosPage() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
+    const createPromise = async () => {
       const payload = {
         ...formData,
         trabajadorId: Number(trabajadorId),
@@ -397,26 +370,30 @@ export default function ContratosPage() {
       };
 
       await post("/contratos", payload);
-      alert("¡Contrato creado exitosamente!");
       await fetchData();
       setFormData(initialFormState);
-      setValidationErrors({}); // Limpiar errores después de crear exitosamente
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message || "Error al crear el contrato.";
-      alert(
-        `Error: ${
-          Array.isArray(errorMessage) ? errorMessage.join(", ") : errorMessage
-        }`
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+      setValidationErrors({});
+    };
+
+    toast.promise(createPromise(), {
+      loading: "Creando contrato...",
+      success: "¡Contrato creado exitosamente!",
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message || "Error al crear el contrato.";
+        const message = Array.isArray(errorMessage)
+          ? errorMessage.join(", ")
+          : errorMessage;
+        console.error("Error creating contrato:", err);
+        return `Error: ${message}`;
+      },
+    });
   };
 
   const handleUpdateContrato = async (updatedData: UpdateContratoFormData) => {
     if (!editingContrato) return;
-    try {
+
+    const updatePromise = async () => {
       const payload = {
         ...updatedData,
         sueldoBase: Number(updatedData.sueldoBase),
@@ -430,9 +407,18 @@ export default function ContratosPage() {
       await patch(`/contratos/${editingContrato.id}`, payload);
       setEditingContrato(null);
       await fetchData();
-    } catch (err) {
-      alert("Error al actualizar el contrato.");
-    }
+    };
+
+    toast.promise(updatePromise(), {
+      loading: "Actualizando contrato...",
+      success: "Contrato actualizado exitosamente",
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message || "Error al actualizar el contrato.";
+        console.error("Error updating contrato:", err);
+        return errorMessage;
+      },
+    });
   };
 
   if (isLoading)
@@ -568,11 +554,11 @@ export default function ContratosPage() {
 
           <button
             type="submit"
-            disabled={isSubmitting || Object.keys(validationErrors).length > 0}
+            disabled={Object.keys(validationErrors).length > 0}
             className="flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-600 transition disabled:opacity-50"
           >
             <PlusIcon className="w-5 h-5" />
-            {isSubmitting ? "Guardando..." : "Guardar Contrato"}
+            Guardar Contrato
           </button>
         </form>
 

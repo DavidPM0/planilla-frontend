@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import useFetchApi from "../hooks/use-fetch";
+import { toast } from "sonner";
 
 // --- TIPOS DE DATOS ---
 type Categoria = {
@@ -91,7 +92,7 @@ const GastoModal = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre.trim() || !monto || !categoriaId) {
-      alert("Por favor, complete todos los campos.");
+      toast.error("Por favor, complete todos los campos.");
       return;
     }
     onSave({ nombre, monto: Number(monto), categoriaId: Number(categoriaId) });
@@ -239,34 +240,68 @@ export default function GastosPage() {
   const handleAgregar = async (
     gastoData: Omit<CreateTransaccionRequest, "tipo">
   ) => {
-    try {
-      await post("/transacciones", { ...gastoData, tipo: "GASTO" });
+    const createPromise = post("/transacciones", {
+      ...gastoData,
+      tipo: "GASTO",
+    }).then(async () => {
       setShowAddModal(false);
       await fetchData();
-    } catch (err) {
-      alert("Error al crear el gasto");
-    }
+    });
+
+    toast.promise(createPromise, {
+      loading: "Creando gasto...",
+      success: `Gasto "${gastoData.nombre}" creado exitosamente`,
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message || "Error al crear el gasto";
+        console.error("Error creating gasto:", err);
+        return errorMessage;
+      },
+    });
   };
 
   const handleGuardarEdicion = async (gastoData: UpdateTransaccionRequest) => {
     if (!editingGasto) return;
-    try {
-      await patch(`/transacciones/${editingGasto.id}`, gastoData);
+
+    const updatePromise = patch(
+      `/transacciones/${editingGasto.id}`,
+      gastoData
+    ).then(async () => {
       setEditingGasto(null);
       await fetchData();
-    } catch (err) {
-      alert("Error al actualizar el gasto");
-    }
+    });
+
+    toast.promise(updatePromise, {
+      loading: "Actualizando gasto...",
+      success: `Gasto "${gastoData.nombre}" actualizado exitosamente`,
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message || "Error al actualizar el gasto";
+        console.error("Error updating gasto:", err);
+        return errorMessage;
+      },
+    });
   };
 
   const handleEliminar = async (id: number) => {
-    if (window.confirm("¿Estás seguro de eliminar este gasto?")) {
-      try {
-        await del(`/transacciones/${id}`);
+    const gastoToDelete = gastos.find((t: Transaccion) => t.id === id);
+    const gastoName = gastoToDelete?.nombre || "el gasto";
+
+    if (window.confirm(`¿Estás seguro de eliminar "${gastoName}"?`)) {
+      const deletePromise = del(`/transacciones/${id}`).then(async () => {
         await fetchData();
-      } catch (err) {
-        alert("Error al eliminar el gasto");
-      }
+      });
+
+      toast.promise(deletePromise, {
+        loading: "Eliminando gasto...",
+        success: `Gasto "${gastoName}" eliminado exitosamente`,
+        error: (err) => {
+          const errorMessage =
+            err?.response?.data?.message || "Error al eliminar el gasto";
+          console.error("Error deleting gasto:", err);
+          return errorMessage;
+        },
+      });
     }
   };
 

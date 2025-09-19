@@ -1,6 +1,7 @@
 import { useState, useEffect, type ChangeEvent, type FormEvent } from "react";
 import { useAuth } from "../context/auth-context";
 import useFetchApi from "../hooks/use-fetch";
+import { toast } from "sonner";
 
 // Tipo para los datos que se enviarán en el PATCH
 type UpdateProfileFormData = {
@@ -11,7 +12,6 @@ type UpdateProfileFormData = {
 };
 
 export default function PerfilPage() {
-  // ✅ 1. Obtenemos user y checkUserSession del contexto
   const { user, checkUserSession } = useAuth();
   const { patch } = useFetchApi();
 
@@ -60,24 +60,29 @@ export default function PerfilPage() {
       nombres: formData.nombres,
       apellidoPaterno: formData.apellidoPaterno,
       correoElectronico: formData.correoElectronico,
+      ...(formData.apellidoMaterno && {
+        apellidoMaterno: formData.apellidoMaterno,
+      }),
     };
-    if (formData.apellidoMaterno) {
-      payload.apellidoMaterno = formData.apellidoMaterno;
-    }
 
-    try {
-      await patch(`/auth/update-user/${user.id}`, payload);
-      alert("¡Perfil actualizado exitosamente!");
+    const updatePromise = async () => {
+      try {
+        await patch(`/auth/update-user/${user.id}`, payload);
+        await checkUserSession();
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
 
-      // ✅ 2. Llamamos a checkUserSession para sincronizar el estado global
-      await checkUserSession();
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message || "Error al actualizar el perfil.";
-      alert(`Error: ${errorMessage}`);
-    } finally {
-      setIsSubmitting(false);
-    }
+    toast.promise(updatePromise(), {
+      loading: "Actualizando perfil...",
+      success: "Perfil actualizado 🎉",
+      error: (err) => {
+        const errorMessage =
+          err.response?.data?.message || "Error al actualizar el perfil";
+        return `Error: ${errorMessage}`;
+      },
+    });
   };
 
   if (!user) {

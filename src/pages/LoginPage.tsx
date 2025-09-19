@@ -2,6 +2,7 @@
 import { useState } from "react";
 import "./LoginPage.css"; // Importamos estilos personalizados
 import { useAuth, type Credentials } from "../context/auth-context";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -10,8 +11,6 @@ export default function LoginPage() {
     correoElectronico: "",
     clave: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -22,18 +21,20 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      await login(formData);
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message || "Credenciales inválidas o error de red.";
-      setError(errorMessage);
-      console.error("Login failed", err);
-    } finally {
-      setIsSubmitting(false);
-    }
+
+    const loginPromise = login(formData);
+
+    toast.promise(loginPromise, {
+      loading: "Iniciando sesión...",
+      success: "¡Bienvenido! Sesión iniciada correctamente",
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message ||
+          "Credenciales inválidas o error de red.";
+        console.error("Login failed", err);
+        return errorMessage;
+      },
+    });
   };
 
   return (
@@ -55,7 +56,6 @@ export default function LoginPage() {
             type="email"
             value={formData.correoElectronico}
             onChange={handleChange}
-            disabled={isSubmitting}
             className="input-field"
             placeholder="ejemplo@correo.com"
             required
@@ -70,7 +70,6 @@ export default function LoginPage() {
             name="clave"
             type="password"
             value={formData.clave}
-            disabled={isSubmitting}
             onChange={handleChange}
             className="input-field"
             placeholder="••••••••"
@@ -82,9 +81,8 @@ export default function LoginPage() {
           type="submit"
           className="w-full py-3 px-4 rounded-lg text-sm font-medium transition text-center bg-indigo-500 text-white shadow hover:bg-indigo-600 cursor-pointer"
         >
-          {isSubmitting ? "Iniciando Sesión..." : "Entrar"}
+          Entrar
         </button>
-        {error && <p style={{ color: "red" }}>Error: {error}</p>}
       </form>
     </div>
   );

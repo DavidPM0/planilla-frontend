@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import useFetchApi from "../hooks/use-fetch";
+import { toast } from "sonner";
 
 // --- TIPOS DE DATOS ---
 type Categoria = {
@@ -94,7 +95,7 @@ const IngresoModal = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre.trim() || !monto || !categoriaId) {
-      alert("Por favor, complete todos los campos.");
+      toast.error("Por favor, complete todos los campos.");
       return;
     }
     onSave({ nombre, monto: Number(monto), categoriaId: Number(categoriaId) });
@@ -244,36 +245,70 @@ export default function IngresosPage() {
   const handleAgregar = async (
     ingresoData: Omit<CreateTransaccionRequest, "tipo">
   ) => {
-    try {
-      await post("/transacciones", { ...ingresoData, tipo: "INGRESO" }); // Cambio clave
+    const createPromise = post("/transacciones", {
+      ...ingresoData,
+      tipo: "INGRESO",
+    }).then(async () => {
       setShowAddModal(false);
       await fetchData();
-    } catch (err) {
-      alert("Error al crear el ingreso");
-    }
+    });
+
+    toast.promise(createPromise, {
+      loading: "Creando ingreso...",
+      success: `Ingreso "${ingresoData.nombre}" creado exitosamente`,
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message || "Error al crear el ingreso";
+        console.error("Error creating ingreso:", err);
+        return errorMessage;
+      },
+    });
   };
 
   const handleGuardarEdicion = async (
     ingresoData: UpdateTransaccionRequest
   ) => {
     if (!editingIngreso) return;
-    try {
-      await patch(`/transacciones/${editingIngreso.id}`, ingresoData);
+
+    const updatePromise = patch(
+      `/transacciones/${editingIngreso.id}`,
+      ingresoData
+    ).then(async () => {
       setEditingIngreso(null);
       await fetchData();
-    } catch (err) {
-      alert("Error al actualizar el ingreso");
-    }
+    });
+
+    toast.promise(updatePromise, {
+      loading: "Actualizando ingreso...",
+      success: `Ingreso "${ingresoData.nombre}" actualizado exitosamente`,
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message || "Error al actualizar el ingreso";
+        console.error("Error updating ingreso:", err);
+        return errorMessage;
+      },
+    });
   };
 
   const handleEliminar = async (id: number) => {
-    if (window.confirm("¿Estás seguro de eliminar este ingreso?")) {
-      try {
-        await del(`/transacciones/${id}`);
+    const ingresoToDelete = ingresos.find((t: Transaccion) => t.id === id);
+    const ingresoName = ingresoToDelete?.nombre || "el ingreso";
+
+    if (window.confirm(`¿Estás seguro de eliminar "${ingresoName}"?`)) {
+      const deletePromise = del(`/transacciones/${id}`).then(async () => {
         await fetchData();
-      } catch (err) {
-        alert("Error al eliminar el ingreso");
-      }
+      });
+
+      toast.promise(deletePromise, {
+        loading: "Eliminando ingreso...",
+        success: `Ingreso "${ingresoName}" eliminado exitosamente`,
+        error: (err) => {
+          const errorMessage =
+            err?.response?.data?.message || "Error al eliminar el ingreso";
+          console.error("Error deleting ingreso:", err);
+          return errorMessage;
+        },
+      });
     }
   };
 

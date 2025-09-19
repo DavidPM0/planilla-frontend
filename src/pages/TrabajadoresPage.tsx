@@ -17,6 +17,7 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import useFetchApi from "../hooks/use-fetch";
+import { toast } from "sonner";
 
 type TrabajadorAPI = {
   id: number;
@@ -242,35 +243,49 @@ export default function TrabajadoresPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    try {
-      await post("/trabajadores", formData);
-      alert("¡Trabajador creado exitosamente!");
-      await fetchData();
-      setFormData(initialFormState);
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message || "Error al crear el trabajador.";
-      alert(
-        `Error: ${
-          Array.isArray(errorMessage) ? errorMessage.join(", ") : errorMessage
-        }`
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+
+    const createPromise = async () => {
+      try {
+        await post("/trabajadores", formData);
+        await fetchData();
+        setFormData(initialFormState);
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    toast.promise(createPromise(), {
+      loading: "Creando trabajador...",
+      success: `Trabajador ${formData.nombres} creado exitosamente 🎉`,
+      error: (err) => {
+        const errorMessage =
+          err.response?.data?.message || "Error al crear el trabajador";
+        const message = Array.isArray(errorMessage)
+          ? errorMessage.join(", ")
+          : errorMessage;
+        return `Error: ${message}`;
+      },
+    });
   };
 
   const handleUpdateTrabajador = async (
     updatedData: UpdateTrabajadorFormData
   ) => {
     if (!editingTrabajador) return;
-    try {
+
+    const updatePromise = async () => {
       await patch(`/trabajadores/${editingTrabajador.id}`, updatedData);
       setEditingTrabajador(null);
       await fetchData();
-    } catch (err) {
-      alert("Error al actualizar el trabajador.");
-    }
+    };
+
+    toast.promise(updatePromise(), {
+      loading: "Actualizando trabajador...",
+      success: `Trabajador ${
+        updatedData.nombres || editingTrabajador.nombres
+      } actualizado exitosamente 🎉`,
+      error: "Error al actualizar el trabajador",
+    });
   };
 
   const handleStatusChange = (trabajadorId: number, newStatus: boolean) => {

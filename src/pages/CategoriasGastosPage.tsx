@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import useFetchApi from "../hooks/use-fetch";
+import { toast } from "sonner";
 
 // --- TIPOS DE DATOS ---
 type Categoria = {
@@ -38,7 +39,10 @@ const EditModal = ({ categoria, onSave, onCancel }: EditModalProps) => {
   const [descripcion, setDescripcion] = useState(categoria.descripcion);
 
   const handleSave = () => {
-    if (!nombre.trim()) return;
+    if (!nombre.trim()) {
+      toast.error("El nombre de la categoría es requerido");
+      return;
+    }
     onSave({
       ...categoria,
       nombre: nombre.trim(),
@@ -138,7 +142,10 @@ export default function CategoriasGastosPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (nombre.trim() === "") return;
+    if (nombre.trim() === "") {
+      toast.error("El nombre de la categoría es requerido");
+      return;
+    }
 
     const nuevaCategoriaRequest: CreateCategoriaRequest = {
       nombre: nombre.trim(),
@@ -146,25 +153,52 @@ export default function CategoriasGastosPage() {
       tipo: "GASTO",
     };
 
-    try {
-      await post("/categorias", nuevaCategoriaRequest);
-      await fetchCategorias();
-      setNombre("");
-      setDescripcion("");
-    } catch (err) {
-      setError("No se pudo crear la categoría.");
-    }
+    const createPromise = post("/categorias", nuevaCategoriaRequest).then(
+      async () => {
+        await fetchCategorias();
+        setNombre("");
+        setDescripcion("");
+      }
+    );
+
+    toast.promise(createPromise, {
+      loading: "Creando categoría...",
+      success: `Categoría "${nombre.trim()}" creada exitosamente`,
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message || "No se pudo crear la categoría.";
+        console.error("Error creating categoria:", err);
+        return errorMessage;
+      },
+    });
   };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm("¿Está seguro de que desea eliminar esta categoría?")) {
-      try {
-        await del(`/categorias/${id}`);
-        setCategorias(categorias.filter((cat) => cat.id !== id));
-      } catch (err) {
-        setError("No se pudo eliminar la categoría.");
-        await fetchCategorias();
-      }
+    const categoriaToDelete = categorias.find((cat) => cat.id === id);
+    const categoriaName = categoriaToDelete?.nombre || "la categoría";
+
+    if (
+      window.confirm(`¿Está seguro de que desea eliminar "${categoriaName}"?`)
+    ) {
+      const deletePromise = del(`/categorias/${id}`)
+        .then(() => {
+          setCategorias(categorias.filter((cat) => cat.id !== id));
+        })
+        .catch(async (err) => {
+          await fetchCategorias(); // Refrescar en caso de error
+          throw err;
+        });
+
+      toast.promise(deletePromise, {
+        loading: "Eliminando categoría...",
+        success: `Categoría "${categoriaName}" eliminada exitosamente`,
+        error: (err) => {
+          const errorMessage =
+            err?.response?.data?.message || "No se pudo eliminar la categoría.";
+          console.error("Error deleting categoria:", err);
+          return errorMessage;
+        },
+      });
     }
   };
 
@@ -182,13 +216,23 @@ export default function CategoriasGastosPage() {
     const { id, nombre, descripcion } = categoriaActualizada;
     const dataToUpdate = { nombre, descripcion, tipo: "GASTO" as const };
 
-    try {
-      await patch(`/categorias/${id}`, dataToUpdate);
-      handleCloseModal();
-      await fetchCategorias();
-    } catch (err) {
-      setError("No se pudo actualizar la categoría.");
-    }
+    const updatePromise = patch(`/categorias/${id}`, dataToUpdate).then(
+      async () => {
+        handleCloseModal();
+        await fetchCategorias();
+      }
+    );
+
+    toast.promise(updatePromise, {
+      loading: "Actualizando categoría...",
+      success: `Categoría "${nombre}" actualizada exitosamente`,
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message || "No se pudo actualizar la categoría.";
+        console.error("Error updating categoria:", err);
+        return errorMessage;
+      },
+    });
   };
 
   const categoriasFiltradas = categorias.filter((cat) =>
