@@ -16,6 +16,7 @@ type Categoria = {
   descripcion: string;
   tipoCategoria: "INGRESO";
   cantidadTransacciones: number; // La API lo devuelve, lo mantenemos por consistencia
+  montoAcumulado: number; // NUEVO: Suma total de montos de las transacciones
   fechaCreacion: string;
   fechaModificacion: string;
 };
@@ -364,6 +365,7 @@ export default function CategoriasIngresosPage() {
                       <th className="px-4 py-3 text-center">
                         Cant. Transacciones
                       </th>
+                      <th className="px-4 py-3 text-right">Monto Acumulado</th>
                       <th className="px-4 py-3">Fecha Creación</th>
                       <th className="px-4 py-3">Última Modificación</th>
                       <th className="px-4 py-3 text-center">Acciones</th>
@@ -377,6 +379,13 @@ export default function CategoriasIngresosPage() {
                         <td className="px-4 py-2">{cat.descripcion}</td>
                         <td className="px-4 py-2 text-center">
                           {cat.cantidadTransacciones}
+                        </td>
+                        <td className="px-4 py-2 text-right font-medium text-indigo-600">
+                          S/{" "}
+                          {cat.montoAcumulado.toLocaleString("es-PE", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                         <td className="px-4 py-2">
                           {formatearFecha(cat.fechaCreacion)}

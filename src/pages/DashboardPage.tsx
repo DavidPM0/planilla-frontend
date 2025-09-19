@@ -11,6 +11,7 @@ import {
   Squares2X2Icon,
   ArrowDownCircleIcon,
   ArrowUpCircleIcon,
+  ScaleIcon,
 } from "@heroicons/react/24/outline";
 import { useState, useEffect, useCallback } from "react";
 import useFetchApi from "../hooks/use-fetch"; // Asegúrate de que la ruta sea correcta
@@ -22,6 +23,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 type ResumenDashboard = {
   ingresoDelMes: number;
   gastoDelMes: number;
+  balanceMensual: number; // Nuevo campo
   balanceAcumulado: number;
 };
 
@@ -203,7 +205,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Tarjetas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card
           title="Ingresos del mes"
           amount={resumenData?.ingresoDelMes || 0}
@@ -219,7 +221,14 @@ export default function DashboardPage() {
           textColor="text-amber-700"
         />
         <Card
-          title="Balance (Acumulado del año)"
+          title="Balance mensual"
+          amount={resumenData?.balanceMensual || 0}
+          icon={<ScaleIcon className="w-6 h-6 text-emerald-500" />}
+          bgColor="bg-emerald-100"
+          textColor="text-emerald-700"
+        />
+        <Card
+          title="Balance acumulado total"
           amount={resumenData?.balanceAcumulado || 0}
           icon={<Squares2X2Icon className="w-6 h-6 text-slate-500" />}
           bgColor="bg-slate-100"
