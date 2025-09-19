@@ -108,13 +108,15 @@ export default function TablaPlanilla({
                   <div className="flex flex-wrap justify-center gap-2">
                     <button
                       onClick={() => onOpenAjuste(detalle, "ADELANTO")}
-                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-100 text-indigo-700 hover:bg-indigo-200 text-xs"
+                      disabled={detalle.estadoPago === "PAGADO"}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-100 text-indigo-700 hover:bg-indigo-200 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <BanknotesIcon className="w-4 h-4" /> Adelanto
                     </button>
                     <button
                       onClick={() => onOpenAjuste(detalle, "DESCUENTO")}
-                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-100 text-yellow-700 hover:bg-yellow-200 text-xs"
+                      disabled={detalle.estadoPago === "PAGADO"}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-100 text-yellow-700 hover:bg-yellow-200 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <MinusCircleIcon className="w-4 h-4" /> Descuento
                     </button>

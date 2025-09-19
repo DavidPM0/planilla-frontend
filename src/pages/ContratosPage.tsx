@@ -13,6 +13,16 @@ import { Link, useParams } from "react-router-dom";
 import useFetchApi from "../hooks/use-fetch";
 
 // ============================================================================
+// UTILIDADES
+function formatDateForAPI(dateString: string): string {
+  if (!dateString) return "";
+  // Crear una fecha en la zona horaria local a las 12:00 del mediodía
+  // para evitar problemas de timezone
+  const date = new Date(dateString + "T12:00:00");
+  return date.toISOString();
+}
+
+// ============================================================================
 type TrabajadorAPI = { id: number; nombres: string; apellidos: string };
 
 const TipoPago = {
@@ -218,7 +228,10 @@ export default function ContratosPage() {
         ...formData,
         trabajadorId: Number(trabajadorId),
         sueldoBase: Number(formData.sueldoBase),
-        fechaFin: formData.fechaFin || null,
+        fechaInicio: formatDateForAPI(formData.fechaInicio),
+        fechaFin: formData.fechaFin
+          ? formatDateForAPI(formData.fechaFin)
+          : null,
       };
 
       await post("/contratos", payload);
@@ -244,7 +257,12 @@ export default function ContratosPage() {
       const payload = {
         ...updatedData,
         sueldoBase: Number(updatedData.sueldoBase),
-        fechaFin: updatedData.fechaFin || null,
+        fechaInicio: updatedData.fechaInicio
+          ? formatDateForAPI(updatedData.fechaInicio)
+          : undefined,
+        fechaFin: updatedData.fechaFin
+          ? formatDateForAPI(updatedData.fechaFin)
+          : null,
       };
       await patch(`/contratos/${editingContrato.id}`, payload);
       setEditingContrato(null);
