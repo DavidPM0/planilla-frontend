@@ -7,7 +7,7 @@ import {
   PencilIcon,
   PlusIcon,
   TrashIcon,
-} from "@heroicons/react/16/solid";
+} from "@heroicons/react/24/outline";
 import {
   useCallback,
   useEffect,
@@ -76,17 +76,18 @@ const StatusToggleButton = ({
   };
 
   const isActive = trabajador.estadoRegistro;
-  const buttonStyle = `p-1 rounded-full transition ${
+  const buttonStyle = `flex items-center gap-1 px-2 py-1 rounded-md text-xs transition ${
     isLoading ? "cursor-not-allowed opacity-50" : ""
   }`;
-  const activeStyle = `text-red-500 hover:text-red-700 hover:bg-red-100 ${buttonStyle}`;
-  const inactiveStyle = `text-green-500 hover:text-green-700 hover:bg-green-100 ${buttonStyle}`;
-  const iconStyle = "w-5 h-5";
+  const activeStyle = `bg-red-100 text-red-700 hover:bg-red-200 ${buttonStyle}`;
+  const inactiveStyle = `bg-green-100 text-green-700 hover:bg-green-200 ${buttonStyle}`;
+  const iconStyle = "w-4 h-4";
 
   if (isLoading) {
     return (
       <button className={isActive ? activeStyle : inactiveStyle} disabled>
         <ArrowPathIcon className={`${iconStyle} animate-spin`} />
+        {isActive ? "Desactivando..." : "Reactivando..."}
       </button>
     );
   }
@@ -98,9 +99,13 @@ const StatusToggleButton = ({
       className={isActive ? activeStyle : inactiveStyle}
     >
       {isActive ? (
-        <TrashIcon className={iconStyle} />
+        <>
+          <TrashIcon className={iconStyle} /> Desactivar
+        </>
       ) : (
-        <ArrowUturnUpIcon className={iconStyle} />
+        <>
+          <ArrowUturnUpIcon className={iconStyle} /> Reactivar
+        </>
       )}
     </button>
   );
@@ -428,16 +433,16 @@ export default function TrabajadoresPage() {
                             <Link
                               to={`/trabajadores/${trabajador.id}/contratos`}
                               title="Gestionar Contratos"
-                              className="text-blue-500 p-1 hover:bg-blue-100 rounded-full"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs"
                             >
-                              <DocumentTextIcon className="w-5 h-5" />
+                              <DocumentTextIcon className="w-4 h-4" /> Contratos
                             </Link>
                             <button
                               onClick={() => setEditingTrabajador(trabajador)}
                               title="Editar"
-                              className="text-indigo-500 p-1 hover:bg-indigo-100 rounded-full"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-100 text-orange-700 hover:bg-orange-200 text-xs"
                             >
-                              <PencilIcon className="w-5 h-5" />
+                              <PencilIcon className="w-4 h-4" /> Editar
                             </button>
                             <StatusToggleButton
                               trabajador={trabajador}

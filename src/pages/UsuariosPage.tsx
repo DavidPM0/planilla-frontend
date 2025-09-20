@@ -60,17 +60,18 @@ const StatusToggleButton = ({
   };
 
   const isActive = user.estadoRegistro;
-  const buttonStyle = `p-1 rounded-full transition ${
+  const buttonStyle = `flex items-center gap-1 px-2 py-1 rounded-md text-xs transition ${
     isLoading ? "cursor-not-allowed opacity-50" : ""
   }`;
-  const activeStyle = `text-red-500 hover:text-red-700 hover:bg-red-100 ${buttonStyle}`;
-  const inactiveStyle = `text-green-500 hover:text-green-700 hover:bg-green-100 ${buttonStyle}`;
-  const iconStyle = "w-5 h-5";
+  const activeStyle = `bg-red-100 text-red-700 hover:bg-red-200 ${buttonStyle}`;
+  const inactiveStyle = `bg-green-100 text-green-700 hover:bg-green-200 ${buttonStyle}`;
+  const iconStyle = "w-4 h-4";
 
   if (isLoading) {
     return (
       <button className={isActive ? activeStyle : inactiveStyle} disabled>
         <ArrowPathIcon className={`${iconStyle} animate-spin`} />
+        {isActive ? "Desactivando..." : "Reactivando..."}
       </button>
     );
   }
@@ -82,9 +83,13 @@ const StatusToggleButton = ({
       className={isActive ? activeStyle : inactiveStyle}
     >
       {isActive ? (
-        <TrashIcon className={iconStyle} />
+        <>
+          <TrashIcon className={iconStyle} /> Desactivar
+        </>
       ) : (
-        <ArrowUturnUpIcon className={iconStyle} />
+        <>
+          <ArrowUturnUpIcon className={iconStyle} /> Reactivar
+        </>
       )}
     </button>
   );
@@ -450,10 +455,10 @@ export default function UsuariosPage() {
                           <div className="flex justify-center gap-2">
                             <button
                               onClick={() => handleEditClick(user)}
-                              className="text-indigo-500 p-1 rounded-full hover:bg-indigo-100 transition"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-100 text-orange-700 hover:bg-orange-200 text-xs"
                               title="Editar usuario"
                             >
-                              <PencilIcon className="w-5 h-5" />
+                              <PencilIcon className="w-4 h-4" /> Editar
                             </button>
                             <StatusToggleButton
                               user={user}

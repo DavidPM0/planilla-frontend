@@ -5,6 +5,7 @@ import {
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
   UserIcon,
+  ClipboardDocumentListIcon,
 } from "@heroicons/react/24/outline";
 
 import { NavLink, useNavigate } from "react-router-dom";
@@ -23,7 +24,11 @@ const navigation = [
   { name: "Ingresos", icon: ArrowDownTrayIcon, href: "/ingresos" },
   { name: "Categorías de Gastos", icon: TagIcon, href: "/categorias-gastos" },
   { name: "Gastos", icon: ArrowUpTrayIcon, href: "/gastos" },
-  { name: "Trabajadores", icon: ArrowUpTrayIcon, href: "/trabajadores" },
+  {
+    name: "Trabajadores",
+    icon: ClipboardDocumentListIcon,
+    href: "/trabajadores",
+  },
 ];
 
 export default function Sidebar() {

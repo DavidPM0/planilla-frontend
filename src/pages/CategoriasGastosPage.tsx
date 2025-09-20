@@ -393,16 +393,16 @@ export default function CategoriasGastosPage() {
                             <button
                               onClick={() => handleEditClick(cat)}
                               title="Editar"
-                              className="text-indigo-500 hover:text-indigo-700 p-1"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-100 text-orange-700 hover:bg-orange-200 text-xs"
                             >
-                              <PencilIcon className="w-5 h-5" />
+                              <PencilIcon className="w-4 h-4" /> Editar
                             </button>
                             <button
                               onClick={() => handleDelete(cat.id)}
                               title="Eliminar"
-                              className="text-red-500 hover:text-red-700 p-1"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-100 text-red-700 hover:bg-red-200 text-xs"
                             >
-                              <TrashIcon className="w-5 h-5" />
+                              <TrashIcon className="w-4 h-4" /> Eliminar
                             </button>
                           </div>
                         </td>

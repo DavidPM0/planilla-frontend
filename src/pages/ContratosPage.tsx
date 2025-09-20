@@ -1,7 +1,7 @@
 // ============================================================================
 // TIPOS DE DATOS
 
-import { PencilIcon, PlusIcon } from "@heroicons/react/16/solid";
+import { PencilIcon, PlusIcon } from "@heroicons/react/24/outline";
 import {
   useCallback,
   useEffect,
@@ -28,8 +28,8 @@ const validateDates = (
   fechaInicio: string,
   fechaFin: string
 ): string | null => {
-  if (!fechaInicio) return null;
-  if (!fechaFin) return null; // Fecha fin es opcional
+  if (!fechaInicio) return "La fecha de inicio es obligatoria";
+  if (!fechaFin) return "La fecha de fin es obligatoria";
 
   const inicio = new Date(fechaInicio);
   const fin = new Date(fechaFin);
@@ -62,10 +62,9 @@ type TipoPago = (typeof TipoPago)[keyof typeof TipoPago];
 type ContratoAPI = {
   id: number;
   fechaInicio: string;
-  fechaFin: string | null;
+  fechaFin: string; // Ahora obligatorio
   sueldoBase: number;
   tipoPago: TipoPago;
-  tipoContrato: string;
   estaActivo: boolean;
 };
 
@@ -94,10 +93,9 @@ function EditContratoModal({
 }: EditModalProps) {
   const [formData, setFormData] = useState({
     fechaInicio: contrato.fechaInicio.split("T")[0],
-    fechaFin: contrato.fechaFin ? contrato.fechaFin.split("T")[0] : "",
+    fechaFin: contrato.fechaFin.split("T")[0], // Ahora siempre existe
     sueldoBase: contrato.sueldoBase,
     tipoPago: contrato.tipoPago,
-    tipoContrato: contrato.tipoContrato,
   });
   const [isSaving, setIsSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{
@@ -209,14 +207,6 @@ function EditContratoModal({
               <option value={TipoPago.MENSUAL}>Mensual</option>
               <option value={TipoPago.QUINCENAL}>Quincenal</option>
             </select>
-            <input
-              type="text"
-              name="tipoContrato"
-              value={formData.tipoContrato}
-              onChange={handleChange}
-              placeholder="Tipo de Contrato"
-              className="w-full border border-slate-300 rounded-md p-2 text-sm"
-            />
           </div>
 
           {/* Mensajes de error en el modal */}
@@ -268,7 +258,6 @@ export default function ContratosPage() {
     fechaFin: "",
     sueldoBase: "",
     tipoPago: TipoPago.MENSUAL,
-    tipoContrato: "Plazo Fijo",
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -480,7 +469,7 @@ export default function ContratosPage() {
                 htmlFor="fechaFin"
                 className="block text-sm font-medium text-slate-700 mb-1"
               >
-                Fecha Fin (Opcional)
+                Fecha Fin
               </label>
               <input
                 id="fechaFin"
@@ -493,6 +482,7 @@ export default function ContratosPage() {
                     ? "border-red-500"
                     : "border-slate-300"
                 }`}
+                required
               />
             </div>
             <div>
@@ -588,11 +578,7 @@ export default function ContratosPage() {
                       )}
                     </td>
                     <td className="px-4 py-2">
-                      {contrato.fechaFin
-                        ? new Date(contrato.fechaFin).toLocaleDateString(
-                            "es-PE"
-                          )
-                        : "Indefinido"}
+                      {new Date(contrato.fechaFin).toLocaleDateString("es-PE")}
                     </td>
                     <td className="px-4 py-2">
                       S/ {Number(contrato.sueldoBase).toFixed(2)}
@@ -613,9 +599,10 @@ export default function ContratosPage() {
                       <button
                         onClick={() => setEditingContrato(contrato)}
                         title="Editar Contrato"
-                        className="text-indigo-500 p-1 hover:bg-indigo-100 rounded-full"
+                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-100 text-orange-700 hover:bg-orange-200 text-xs"
                       >
-                        <PencilIcon className="w-5 h-5" />
+                        <PencilIcon className="w-4 h-4" />
+                        Editar
                       </button>
                     </td>
                   </tr>
