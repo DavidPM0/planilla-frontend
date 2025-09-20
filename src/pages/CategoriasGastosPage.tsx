@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useMemo } from "react";
 import {
   PlusIcon,
   TrashIcon,
@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import useFetchApi from "../hooks/use-fetch";
+import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
 
 // --- TIPOS DE DATOS ---
@@ -14,7 +15,7 @@ type Categoria = {
   id: number;
   nombre: string;
   descripcion: string;
-  tipoCategoria: "GASTO";
+  tipo: "GASTO";
   cantidadTransacciones: number;
   montoAcumulado: number; // NUEVO: Suma total de montos de las transacciones
   fechaCreacion: string;
@@ -109,12 +110,6 @@ const EditModal = ({ categoria, onSave, onCancel }: EditModalProps) => {
 export default function CategoriasGastosPage() {
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [filtro, setFiltro] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const categoriasPorPagina = 9;
 
   // Estados para el Modal de edición
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -122,24 +117,32 @@ export default function CategoriasGastosPage() {
     null
   );
 
-  const { get, post, patch, del } = useFetchApi();
+  const { post, patch, del } = useFetchApi();
 
-  const fetchCategorias = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await get<Categoria[]>("/categorias?tipo=GASTO");
-      setCategorias(data);
-    } catch (err) {
-      setError("Error al cargar las categorías de gastos.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [get]);
+  // Memoizar additionalParams para evitar re-renderizados infinitos
+  const additionalParams = useMemo(
+    () => ({
+      tipo: "GASTO",
+    }),
+    []
+  );
 
-  useEffect(() => {
-    fetchCategorias();
-  }, [fetchCategorias]);
+  // ¡Usar nuestro hook de paginación robusto! 🚀
+  const {
+    data: categorias,
+    isLoading,
+    error,
+    search: filtro,
+    setSearch: setFiltro,
+    refresh,
+    currentPage,
+    lastPage: totalPaginas,
+    nextPage,
+    previousPage,
+  } = usePaginationQuery<Categoria>("/categorias/paginated", {
+    limit: 9,
+    additionalParams,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,7 +159,7 @@ export default function CategoriasGastosPage() {
 
     const createPromise = post("/categorias", nuevaCategoriaRequest).then(
       async () => {
-        await fetchCategorias();
+        refresh();
         setNombre("");
         setDescripcion("");
       }
@@ -183,10 +186,10 @@ export default function CategoriasGastosPage() {
     ) {
       const deletePromise = del(`/categorias/${id}`)
         .then(() => {
-          setCategorias(categorias.filter((cat) => cat.id !== id));
+          refresh();
         })
         .catch(async (err) => {
-          await fetchCategorias(); // Refrescar en caso de error
+          refresh(); // Refrescar en caso de error
           throw err;
         });
 
@@ -220,7 +223,7 @@ export default function CategoriasGastosPage() {
     const updatePromise = patch(`/categorias/${id}`, dataToUpdate).then(
       async () => {
         handleCloseModal();
-        await fetchCategorias();
+        refresh();
       }
     );
 
@@ -236,17 +239,6 @@ export default function CategoriasGastosPage() {
     });
   };
 
-  const categoriasFiltradas = categorias.filter((cat) =>
-    cat.nombre.toLowerCase().includes(filtro.toLowerCase())
-  );
-  const totalPaginas = Math.ceil(
-    categoriasFiltradas.length / categoriasPorPagina
-  );
-  const startIndex = (currentPage - 1) * categoriasPorPagina;
-  const currentCategorias = categoriasFiltradas.slice(
-    startIndex,
-    startIndex + categoriasPorPagina
-  );
   const formatearFecha = (fechaISO: string) =>
     new Date(fechaISO).toLocaleString();
 
@@ -367,7 +359,7 @@ export default function CategoriasGastosPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {currentCategorias.map((cat) => (
+                    {categorias.map((cat: Categoria) => (
                       <tr key={cat.id}>
                         <td className="px-4 py-2">{cat.id}</td>
                         <td className="px-4 py-2">{cat.nombre}</td>
@@ -413,7 +405,7 @@ export default function CategoriasGastosPage() {
               </div>
               <div className="flex justify-between items-center mt-4">
                 <button
-                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  onClick={previousPage}
                   disabled={currentPage === 1}
                   className="flex items-center gap-1 text-sm text-slate-600"
                 >
@@ -423,9 +415,7 @@ export default function CategoriasGastosPage() {
                   Página {currentPage} de {totalPaginas || 1}
                 </span>
                 <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(p + 1, totalPaginas))
-                  }
+                  onClick={nextPage}
                   disabled={currentPage === totalPaginas || totalPaginas === 0}
                   className="flex items-center gap-1 text-sm text-slate-600"
                 >

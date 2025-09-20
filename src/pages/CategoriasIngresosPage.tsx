@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useMemo } from "react";
 import {
   PlusIcon,
   TrashIcon,
@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import useFetchApi from "../hooks/use-fetch";
+import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
 
 // --- TIPOS DE DATOS ---
@@ -14,7 +15,7 @@ type Categoria = {
   id: number;
   nombre: string;
   descripcion: string;
-  tipoCategoria: "INGRESO";
+  tipo: "INGRESO";
   cantidadTransacciones: number; // La API lo devuelve, lo mantenemos por consistencia
   montoAcumulado: number; // NUEVO: Suma total de montos de las transacciones
   fechaCreacion: string;
@@ -110,38 +111,31 @@ export default function CategoriasIngresosPage() {
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
 
-  // Estados de la página
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [filtro, setFiltro] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const categoriasPorPagina = 9;
-
   // Estados para el Modal de edición
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategoria, setEditingCategoria] = useState<Categoria | null>(
     null
   );
 
-  const { get, post, patch, del } = useFetchApi();
+  const { post, patch, del } = useFetchApi();
 
-  const fetchCategorias = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await get<Categoria[]>("/categorias?tipo=INGRESO");
-      setCategorias(data);
-    } catch (err) {
-      setError("Error al cargar las categorías de ingresos.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [get]);
+  const additionalParams = useMemo(() => ({ tipo: "INGRESO" }), []);
 
-  useEffect(() => {
-    fetchCategorias();
-  }, [fetchCategorias]);
+  const {
+    data: categorias,
+    isLoading,
+    error,
+    search: filtro,
+    setSearch: setFiltro,
+    refresh,
+    currentPage,
+    lastPage: totalPaginas,
+    nextPage,
+    previousPage,
+  } = usePaginationQuery<Categoria>("/categorias/paginated", {
+    limit: 9,
+    additionalParams,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,7 +152,7 @@ export default function CategoriasIngresosPage() {
 
     const createPromise = post("/categorias", nuevaCategoriaRequest).then(
       async () => {
-        await fetchCategorias();
+        refresh();
         setNombre("");
         setDescripcion("");
       }
@@ -184,11 +178,11 @@ export default function CategoriasIngresosPage() {
       window.confirm(`¿Está seguro de que desea eliminar "${categoriaName}"?`)
     ) {
       const deletePromise = del(`/categorias/${id}`)
-        .then(() => {
-          setCategorias(categorias.filter((cat) => cat.id !== id));
+        .then(async () => {
+          refresh();
         })
         .catch(async (err) => {
-          await fetchCategorias(); // Refrescar en caso de error
+          refresh(); // Refrescar en caso de error
           throw err;
         });
 
@@ -222,7 +216,7 @@ export default function CategoriasIngresosPage() {
     const updatePromise = patch(`/categorias/${id}`, dataToUpdate).then(
       async () => {
         handleCloseModal();
-        await fetchCategorias();
+        refresh();
       }
     );
 
@@ -238,17 +232,6 @@ export default function CategoriasIngresosPage() {
     });
   };
 
-  const categoriasFiltradas = categorias.filter((cat) =>
-    cat.nombre.toLowerCase().includes(filtro.toLowerCase())
-  );
-  const totalPaginas = Math.ceil(
-    categoriasFiltradas.length / categoriasPorPagina
-  );
-  const startIndex = (currentPage - 1) * categoriasPorPagina;
-  const currentCategorias = categoriasFiltradas.slice(
-    startIndex,
-    startIndex + categoriasPorPagina
-  );
   const formatearFecha = (fechaISO: string) =>
     new Date(fechaISO).toLocaleString();
 
@@ -372,7 +355,7 @@ export default function CategoriasIngresosPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {currentCategorias.map((cat) => (
+                    {categorias.map((cat) => (
                       <tr key={cat.id}>
                         <td className="px-4 py-2">{cat.id}</td>
                         <td className="px-4 py-2">{cat.nombre}</td>
@@ -418,9 +401,9 @@ export default function CategoriasIngresosPage() {
               </div>
               <div className="flex justify-between items-center mt-4">
                 <button
-                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  onClick={previousPage}
                   disabled={currentPage === 1}
-                  className="flex items-center gap-1 text-sm text-slate-600"
+                  className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronLeftIcon className="w-5 h-5" /> Anterior
                 </button>
@@ -428,11 +411,9 @@ export default function CategoriasIngresosPage() {
                   Página {currentPage} de {totalPaginas || 1}
                 </span>
                 <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(p + 1, totalPaginas))
-                  }
+                  onClick={nextPage}
                   disabled={currentPage === totalPaginas || totalPaginas === 0}
-                  className="flex items-center gap-1 text-sm text-slate-600"
+                  className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Siguiente <ChevronRightIcon className="w-5 h-5" />
                 </button>
