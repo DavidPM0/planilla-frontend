@@ -734,6 +734,7 @@ export default function PlanillaPage() {
                 <thead>
                   <tr className="bg-slate-100 text-slate-700">
                     <th className="px-4 py-3">Nombres y Apellidos</th>
+                    <th className="px-4 py-3">Banco y Cuenta</th>
                     <th className="px-4 py-3">Monto Base</th>
                     <th className="px-4 py-3">Total Ajustes</th>
                     <th className="px-4 py-3">Neto a Pagar</th>
@@ -748,6 +749,16 @@ export default function PlanillaPage() {
                       <td className="px-4 py-2">
                         {detalle.trabajador.nombres}{" "}
                         {detalle.trabajador.apellidos}
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="text-sm">
+                          <div className="font-medium text-slate-700">
+                            {detalle.trabajador.banco || "Sin banco"}
+                          </div>
+                          <div className="text-slate-500">
+                            {detalle.trabajador.numeroCuenta || "Sin cuenta"}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-2">
                         S/ {Number(detalle.montoBase || 0).toFixed(2)}
