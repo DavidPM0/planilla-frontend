@@ -56,6 +56,14 @@ const validateMonto = (monto: string | number): string | null => {
   return null;
 };
 
+// Función para determinar si un contrato está finalizado
+const estaContratoFinalizado = (contrato: ContratoAPI): boolean => {
+  // Un contrato está finalizado si:
+  // 1. estaActivo es false, O
+  // 2. Su fecha de fin ya pasó
+  return !contrato.estaActivo || new Date(contrato.fechaFin) < new Date();
+};
+
 // ============================================================================
 type TrabajadorAPI = { id: number; nombres: string; apellidos: string };
 
@@ -709,8 +717,17 @@ export default function ContratosPage() {
                         <td className="px-4 py-2 text-center">
                           <button
                             onClick={() => setEditingContrato(contrato)}
-                            title="Editar Contrato"
-                            className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-100 text-orange-700 hover:bg-orange-200 text-xs"
+                            disabled={estaContratoFinalizado(contrato)}
+                            title={
+                              estaContratoFinalizado(contrato)
+                                ? "No se puede editar un contrato finalizado"
+                                : "Editar Contrato"
+                            }
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
+                              estaContratoFinalizado(contrato)
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-orange-100 text-orange-700 hover:bg-orange-200"
+                            }`}
                           >
                             <PencilIcon className="w-4 h-4" />
                             Editar
