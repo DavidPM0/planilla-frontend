@@ -100,6 +100,10 @@ const IngresoModal = ({
       toast.error("Por favor, complete todos los campos.");
       return;
     }
+    if (Number(monto) <= 0) {
+      toast.error("El monto debe ser mayor a 0.");
+      return;
+    }
     onSave({ nombre, monto: Number(monto), categoriaId: Number(categoriaId) });
   };
 
@@ -137,6 +141,7 @@ const IngresoModal = ({
               id="monto"
               type="number"
               step="0.01"
+              min="0.01"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
               className="w-full border rounded-md p-2 mt-1"

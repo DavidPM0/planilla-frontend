@@ -1,12 +1,9 @@
 import {
-  ArrowPathIcon,
-  ArrowUturnUpIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   DocumentTextIcon,
   PencilIcon,
   PlusIcon,
-  TrashIcon,
   MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 import { useState, type ChangeEvent, type FormEvent } from "react";
@@ -19,6 +16,7 @@ type TrabajadorAPI = {
   id: number;
   nombres: string;
   apellidos: string;
+  dni: string;
   banco: string | null;
   numeroCuenta: string | null;
   estadoRegistro: boolean;
@@ -28,84 +26,12 @@ type TrabajadorAPI = {
 type CreateTrabajadorFormData = {
   nombres: string;
   apellidos: string;
+  dni: string;
   banco: string;
   numeroCuenta: string;
 };
 
 export type UpdateTrabajadorFormData = Partial<CreateTrabajadorFormData>;
-
-const StatusToggleButton = ({
-  trabajador,
-  onStatusChange,
-}: {
-  trabajador: TrabajadorAPI;
-  onStatusChange: (trabajadorId: number, newStatus: boolean) => void;
-}) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const { del, patch } = useFetchApi();
-
-  const handleChangeStatus = async () => {
-    const newStatus = !trabajador.estadoRegistro;
-    const actionText = newStatus ? "reactivar" : "desactivar";
-    if (
-      !window.confirm(
-        `¿Está seguro de que desea ${actionText} a este trabajador?`
-      )
-    )
-      return;
-
-    setIsLoading(true);
-    try {
-      if (newStatus) {
-        await patch(`/trabajadores/${trabajador.id}`, {
-          estadoRegistro: newStatus,
-        });
-      } else {
-        await del(`/trabajadores/${trabajador.id}`);
-      }
-      onStatusChange(trabajador.id, newStatus);
-    } catch (error) {
-      alert(`No se pudo ${actionText} al trabajador.`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isActive = trabajador.estadoRegistro;
-  const buttonStyle = `flex items-center gap-1 px-2 py-1 rounded-md text-xs transition ${
-    isLoading ? "cursor-not-allowed opacity-50" : ""
-  }`;
-  const activeStyle = `bg-red-100 text-red-700 hover:bg-red-200 ${buttonStyle}`;
-  const inactiveStyle = `bg-green-100 text-green-700 hover:bg-green-200 ${buttonStyle}`;
-  const iconStyle = "w-4 h-4";
-
-  if (isLoading) {
-    return (
-      <button className={isActive ? activeStyle : inactiveStyle} disabled>
-        <ArrowPathIcon className={`${iconStyle} animate-spin`} />
-        {isActive ? "Desactivando..." : "Reactivando..."}
-      </button>
-    );
-  }
-
-  return (
-    <button
-      title={isActive ? "Desactivar trabajador" : "Reactivar trabajador"}
-      onClick={handleChangeStatus}
-      className={isActive ? activeStyle : inactiveStyle}
-    >
-      {isActive ? (
-        <>
-          <TrashIcon className={iconStyle} /> Desactivar
-        </>
-      ) : (
-        <>
-          <ArrowUturnUpIcon className={iconStyle} /> Reactivar
-        </>
-      )}
-    </button>
-  );
-};
 
 interface EditModalProps {
   show: boolean;
@@ -123,6 +49,7 @@ function EditTrabajadorModal({
   const [formData, setFormData] = useState({
     nombres: trabajador.nombres,
     apellidos: trabajador.apellidos,
+    dni: trabajador.dni,
     banco: trabajador.banco || "",
     numeroCuenta: trabajador.numeroCuenta || "",
   });
@@ -159,6 +86,14 @@ function EditTrabajadorModal({
             value={formData.apellidos}
             onChange={handleChange}
             placeholder="Apellidos"
+            className="w-full border border-slate-300 rounded-md p-2 text-sm"
+            required
+          />
+          <input
+            name="dni"
+            value={formData.dni}
+            onChange={handleChange}
+            placeholder="DNI"
             className="w-full border border-slate-300 rounded-md p-2 text-sm"
             required
           />
@@ -202,6 +137,7 @@ export default function TrabajadoresPage() {
   const initialFormState: CreateTrabajadorFormData = {
     nombres: "",
     apellidos: "",
+    dni: "",
     banco: "",
     numeroCuenta: "",
   };
@@ -211,7 +147,6 @@ export default function TrabajadoresPage() {
   const [editingTrabajador, setEditingTrabajador] =
     useState<TrabajadorAPI | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error] = useState<string | null>(null);
 
   const { post, patch } = useFetchApi();
 
@@ -234,8 +169,8 @@ export default function TrabajadoresPage() {
     initialSearch: "",
   });
 
-  // Combinar errores
-  const combinedError = error || paginationError;
+  // Usar el error de paginación
+  const combinedError = paginationError;
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -289,11 +224,6 @@ export default function TrabajadoresPage() {
     });
   };
 
-  const handleStatusChange = (_trabajadorId: number, _newStatus: boolean) => {
-    // El hook se encarga de mantener la sincronización de datos automáticamente
-    refresh();
-  };
-
   return (
     <div className="bg-[#f9fafb] flex flex-col min-h-screen">
       <div className="p-6">
@@ -308,41 +238,78 @@ export default function TrabajadoresPage() {
             onSubmit={handleSubmit}
             className="bg-white shadow rounded-lg p-4 space-y-4 max-w-3xl w-full"
           >
+            <h3 className="text-md font-semibold text-slate-700 mb-4">
+              Agregar Nuevo Trabajador
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                type="text"
-                name="nombres"
-                value={formData.nombres}
-                onChange={handleInputChange}
-                className="w-full border border-slate-300 rounded-md p-2 text-sm"
-                placeholder="Nombres"
-                required
-              />
-              <input
-                type="text"
-                name="apellidos"
-                value={formData.apellidos}
-                onChange={handleInputChange}
-                className="w-full border border-slate-300 rounded-md p-2 text-sm"
-                placeholder="Apellidos"
-                required
-              />
-              <input
-                type="text"
-                name="banco"
-                value={formData.banco}
-                onChange={handleInputChange}
-                className="w-full border border-slate-300 rounded-md p-2 text-sm"
-                placeholder="Banco (ej: BCP)"
-              />
-              <input
-                type="text"
-                name="numeroCuenta"
-                value={formData.numeroCuenta}
-                onChange={handleInputChange}
-                className="w-full border border-slate-300 rounded-md p-2 text-sm"
-                placeholder="Número de Cuenta"
-              />
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Nombres *
+                </label>
+                <input
+                  type="text"
+                  name="nombres"
+                  value={formData.nombres}
+                  onChange={handleInputChange}
+                  className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                  placeholder="Nombres"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Apellidos *
+                </label>
+                <input
+                  type="text"
+                  name="apellidos"
+                  value={formData.apellidos}
+                  onChange={handleInputChange}
+                  className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                  placeholder="Apellidos"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  DNI *
+                </label>
+                <input
+                  type="text"
+                  name="dni"
+                  value={formData.dni}
+                  onChange={handleInputChange}
+                  className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                  placeholder="DNI"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Banco
+                </label>
+                <input
+                  type="text"
+                  name="banco"
+                  value={formData.banco}
+                  onChange={handleInputChange}
+                  className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                  placeholder="Banco (ej: BCP)"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Número de Cuenta
+                </label>
+                <input
+                  type="text"
+                  name="numeroCuenta"
+                  value={formData.numeroCuenta}
+                  onChange={handleInputChange}
+                  className="w-full border border-slate-300 rounded-md p-2 text-sm"
+                  placeholder="Número de Cuenta"
+                />
+              </div>
             </div>
             <button
               type="submit"
@@ -365,7 +332,7 @@ export default function TrabajadoresPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nombre, apellidos o número de cuenta..."
+                placeholder="Buscar por nombre, apellidos, DNI o número de cuenta..."
                 className="block w-full md:w-64 pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
@@ -387,8 +354,8 @@ export default function TrabajadoresPage() {
                   <thead>
                     <tr className="bg-slate-100 text-slate-700">
                       <th className="px-4 py-3">Nombre Completo</th>
+                      <th className="px-4 py-3">DNI</th>
                       <th className="px-4 py-3">Datos Bancarios</th>
-                      <th className="px-4 py-3">Estado</th>
                       <th className="px-4 py-3 text-center">Acciones</th>
                     </tr>
                   </thead>
@@ -396,21 +363,11 @@ export default function TrabajadoresPage() {
                     {trabajadores.map((trabajador) => (
                       <tr key={trabajador.id}>
                         <td className="px-4 py-2">{`${trabajador.nombres} ${trabajador.apellidos}`}</td>
+                        <td className="px-4 py-2">{trabajador.dni}</td>
                         <td className="px-4 py-2">
                           {trabajador.banco
                             ? `${trabajador.banco} - ${trabajador.numeroCuenta}`
                             : "No especificado"}
-                        </td>
-                        <td className="px-4 py-2">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              trabajador.estadoRegistro
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {trabajador.estadoRegistro ? "Activo" : "Inactivo"}
-                          </span>
                         </td>
                         <td className="px-4 py-2 text-center">
                           <div className="flex justify-center gap-2">
@@ -428,10 +385,6 @@ export default function TrabajadoresPage() {
                             >
                               <PencilIcon className="w-4 h-4" /> Editar
                             </button>
-                            <StatusToggleButton
-                              trabajador={trabajador}
-                              onStatusChange={handleStatusChange}
-                            />
                           </div>
                         </td>
                       </tr>

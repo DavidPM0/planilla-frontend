@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import type { DetallePlanillaAPI } from "../../pages/PlanillaPage";
 
 export type TipoAjuste = "ADELANTO" | "DESCUENTO";
@@ -32,21 +33,29 @@ export default function ModalAjuste({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!monto || Number(monto) <= 0) {
-      alert("Por favor, ingrese un monto válido.");
+      toast.error("Por favor, ingrese un monto válido mayor a 0.");
       return;
     }
 
     setIsSaving(true);
-    await onSave({
-      monto: Number(monto),
-      descripcion,
-      fechaAplicacion: new Date().toISOString(),
-    });
-    setIsSaving(false);
-    // Limpiamos los campos y cerramos el modal
-    setMonto("");
-    setDescripcion("");
-    onClose();
+    try {
+      await onSave({
+        monto: Number(monto),
+        descripcion,
+        fechaAplicacion: new Date().toISOString(),
+      });
+      // Solo limpiamos y cerramos si el guardado fue exitoso
+      setMonto("");
+      setDescripcion("");
+      onClose();
+    } catch (error) {
+      // El error ya se maneja en handleOperationWithToast con toast.error
+      // Solo necesitamos asegurarnos de que isSaving se resetee
+      console.error("Error al guardar ajuste:", error);
+    } finally {
+      // IMPORTANTE: Siempre resetear isSaving para que el usuario pueda cancelar
+      setIsSaving(false);
+    }
   };
 
   return (
