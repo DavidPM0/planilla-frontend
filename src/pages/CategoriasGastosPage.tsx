@@ -136,9 +136,11 @@ export default function CategoriasGastosPage() {
     setSearch: setFiltro,
     refresh,
     currentPage,
-    lastPage: totalPaginas,
+    lastPage,
     nextPage,
     previousPage,
+    hasNextPage,
+    hasPreviousPage,
   } = usePaginationQuery<Categoria>("/categorias/paginated", {
     limit: 9,
     additionalParams,
@@ -406,18 +408,18 @@ export default function CategoriasGastosPage() {
               <div className="flex justify-between items-center mt-4">
                 <button
                   onClick={previousPage}
-                  disabled={currentPage === 1}
-                  className="flex items-center gap-1 text-sm text-slate-600"
+                  disabled={!hasPreviousPage}
+                  className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
                 >
                   <ChevronLeftIcon className="w-5 h-5" /> Anterior
                 </button>
                 <span className="text-sm text-slate-600">
-                  Página {currentPage} de {totalPaginas || 1}
+                  Página {currentPage} de {lastPage || 1}
                 </span>
                 <button
                   onClick={nextPage}
-                  disabled={currentPage === totalPaginas || totalPaginas === 0}
-                  className="flex items-center gap-1 text-sm text-slate-600"
+                  disabled={!hasNextPage}
+                  className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
                 >
                   Siguiente <ChevronRightIcon className="w-5 h-5" />
                 </button>

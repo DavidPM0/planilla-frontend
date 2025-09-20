@@ -1,16 +1,23 @@
 // ============================================================================
 // TIPOS DE DATOS
 
-import { PencilIcon, PlusIcon } from "@heroicons/react/24/outline";
+import {
+  PencilIcon,
+  PlusIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@heroicons/react/24/outline";
 import {
   useCallback,
   useEffect,
   useState,
+  useMemo,
   type ChangeEvent,
   type FormEvent,
 } from "react";
 import { Link, useParams } from "react-router-dom";
 import useFetchApi from "../hooks/use-fetch";
+import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
 
 // ============================================================================
@@ -262,42 +269,74 @@ export default function ContratosPage() {
 
   const [formData, setFormData] = useState(initialFormState);
   const [trabajador, setTrabajador] = useState<TrabajadorAPI | null>(null);
-  const [contratos, setContratos] = useState<ContratoAPI[]>([]);
   const [editingContrato, setEditingContrato] = useState<ContratoAPI | null>(
     null
   );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoadingTrabajador, setIsLoadingTrabajador] = useState(true);
+  const [errorTrabajador, setErrorTrabajador] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<{
     fechas?: string;
     monto?: string;
   }>({});
 
+  // Estado para filtros
+  const [filtroTipoPago, setFiltroTipoPago] = useState<TipoPago | "TODOS">(
+    "TODOS"
+  );
+
   const { get, post, patch } = useFetchApi();
 
-  const fetchData = useCallback(async () => {
+  // Parámetros adicionales para la paginación basados en filtros
+  const additionalParams = useMemo(() => {
+    const params: any = {};
+    if (filtroTipoPago !== "TODOS") {
+      params.tipoPago = filtroTipoPago;
+    }
+    return params;
+  }, [filtroTipoPago]);
+
+  // Hook de paginación para contratos
+  const {
+    data: contratos,
+    isLoading: isLoadingContratos,
+    error: errorContratos,
+    currentPage,
+    lastPage,
+    total,
+    hasNextPage,
+    hasPreviousPage,
+    nextPage,
+    previousPage,
+    goToPage,
+    refresh,
+  } = usePaginationQuery<ContratoAPI>(
+    `/contratos/por-trabajador/${trabajadorId}/paginated`,
+    {
+      limit: 10,
+      additionalParams,
+    }
+  );
+
+  // Cargar datos del trabajador
+  const fetchTrabajador = useCallback(async () => {
     if (!trabajadorId) return;
-    setIsLoading(true);
-    setError(null);
+    setIsLoadingTrabajador(true);
+    setErrorTrabajador(null);
     try {
-      const [trabajadorData, contratosData] = await Promise.all([
-        get<TrabajadorAPI>(`/trabajadores/${trabajadorId}`),
-        get<ContratoAPI[]>(`/contratos/por-trabajador/${trabajadorId}`),
-      ]);
-      setTrabajador(trabajadorData);
-      setContratos(contratosData);
-    } catch (err) {
-      setError(
-        "No se pudieron cargar los datos del trabajador o sus contratos."
+      const trabajadorData = await get<TrabajadorAPI>(
+        `/trabajadores/${trabajadorId}`
       );
+      setTrabajador(trabajadorData);
+    } catch (err) {
+      setErrorTrabajador("No se pudieron cargar los datos del trabajador.");
     } finally {
-      setIsLoading(false);
+      setIsLoadingTrabajador(false);
     }
   }, [get, trabajadorId]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchTrabajador();
+  }, [fetchTrabajador]);
 
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -359,7 +398,7 @@ export default function ContratosPage() {
       };
 
       await post("/contratos", payload);
-      await fetchData();
+      refresh(); // Refrescar la paginación
       setFormData(initialFormState);
       setValidationErrors({});
     };
@@ -395,7 +434,7 @@ export default function ContratosPage() {
       };
       await patch(`/contratos/${editingContrato.id}`, payload);
       setEditingContrato(null);
-      await fetchData();
+      refresh(); // Refrescar la paginación
     };
 
     toast.promise(updatePromise(), {
@@ -410,9 +449,10 @@ export default function ContratosPage() {
     });
   };
 
-  if (isLoading)
-    return <div className="p-6">Cargando datos del contrato...</div>;
-  if (error) return <div className="p-6 text-red-500">{error}</div>;
+  if (isLoadingTrabajador)
+    return <div className="p-6">Cargando datos del trabajador...</div>;
+  if (errorTrabajador)
+    return <div className="p-6 text-red-500">{errorTrabajador}</div>;
 
   return (
     <div className="bg-[#f9fafb] flex flex-col min-h-screen">
@@ -552,64 +592,160 @@ export default function ContratosPage() {
           </button>
         </form>
 
-        {/* Tabla de contratos */}
+        {/* Tabla de contratos con filtros */}
         <div className="bg-white shadow rounded-lg p-4">
-          <h3 className="text-md font-semibold text-slate-700 mb-4">
-            Historial de Contratos
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm text-left text-slate-600">
-              <thead>
-                <tr className="bg-slate-100 text-slate-700">
-                  <th className="px-4 py-3">Fecha Inicio</th>
-                  <th className="px-4 py-3">Fecha Fin</th>
-                  <th className="px-4 py-3">Sueldo Base</th>
-                  <th className="px-4 py-3">Tipo de Pago</th>
-                  <th className="px-4 py-3">Estado</th>
-                  <th className="px-4 py-3 text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {contratos.map((contrato) => (
-                  <tr key={contrato.id}>
-                    <td className="px-4 py-2">
-                      {new Date(contrato.fechaInicio).toLocaleDateString(
-                        "es-PE"
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      {new Date(contrato.fechaFin).toLocaleDateString("es-PE")}
-                    </td>
-                    <td className="px-4 py-2">
-                      S/ {Number(contrato.sueldoBase).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-2">{contrato.tipoPago}</td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          contrato.estaActivo
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {contrato.estaActivo ? "Vigente" : "Finalizado"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <button
-                        onClick={() => setEditingContrato(contrato)}
-                        title="Editar Contrato"
-                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-100 text-orange-700 hover:bg-orange-200 text-xs"
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                        Editar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+            <h3 className="text-md font-semibold text-slate-700 mb-3 sm:mb-0">
+              Historial de Contratos ({total}{" "}
+              {total === 1 ? "contrato" : "contratos"})
+            </h3>
+
+            {/* Filtros por botones */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFiltroTipoPago("TODOS")}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition ${
+                  filtroTipoPago === "TODOS"
+                    ? "bg-indigo-100 text-indigo-700 border border-indigo-300"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
+                }`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => setFiltroTipoPago(TipoPago.MENSUAL)}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition ${
+                  filtroTipoPago === TipoPago.MENSUAL
+                    ? "bg-green-100 text-green-700 border border-green-300"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
+                }`}
+              >
+                📅 Mensual
+              </button>
+              <button
+                onClick={() => setFiltroTipoPago(TipoPago.QUINCENAL)}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition ${
+                  filtroTipoPago === TipoPago.QUINCENAL
+                    ? "bg-blue-100 text-blue-700 border border-blue-300"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300"
+                }`}
+              >
+                🗓️ Quincenal
+              </button>
+            </div>
           </div>
+
+          {isLoadingContratos ? (
+            <div className="text-center py-8 text-slate-500">
+              Cargando contratos...
+            </div>
+          ) : errorContratos ? (
+            <div className="text-center py-8 text-red-500">
+              {errorContratos}
+            </div>
+          ) : contratos.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              No se encontraron contratos con los filtros seleccionados.
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm text-left text-slate-600">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700">
+                      <th className="px-4 py-3">Estado</th>
+                      <th className="px-4 py-3">Fecha Inicio</th>
+                      <th className="px-4 py-3">Fecha Fin</th>
+                      <th className="px-4 py-3">Sueldo Base</th>
+                      <th className="px-4 py-3">Tipo de Pago</th>
+                      <th className="px-4 py-3 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contratos.map((contrato) => (
+                      <tr
+                        key={contrato.id}
+                        className={contrato.estaActivo ? "bg-green-50" : ""}
+                      >
+                        <td className="px-4 py-2">
+                          <span
+                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              contrato.estaActivo
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {contrato.estaActivo
+                              ? "✅ Vigente"
+                              : "📋 Finalizado"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2">
+                          {new Date(contrato.fechaInicio).toLocaleDateString(
+                            "es-PE"
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          {new Date(contrato.fechaFin).toLocaleDateString(
+                            "es-PE"
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          S/ {Number(contrato.sueldoBase).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-2">
+                          <span
+                            className={`px-2 py-1 text-xs rounded-md ${
+                              contrato.tipoPago === "MENSUAL"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-blue-100 text-blue-700"
+                            }`}
+                          >
+                            {contrato.tipoPago === "MENSUAL"
+                              ? "📅 Mensual"
+                              : "🗓️ Quincenal"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <button
+                            onClick={() => setEditingContrato(contrato)}
+                            title="Editar Contrato"
+                            className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-100 text-orange-700 hover:bg-orange-200 text-xs"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                            Editar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Paginación */}
+              {
+                <div className="flex justify-between items-center mt-4">
+                  <button
+                    onClick={previousPage}
+                    disabled={!hasPreviousPage}
+                    className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
+                  >
+                    <ChevronLeftIcon className="w-5 h-5" /> Anterior
+                  </button>
+                  <span className="text-sm text-slate-600">
+                    Página {currentPage} de {lastPage || 1}
+                  </span>
+                  <button
+                    onClick={nextPage}
+                    disabled={!hasNextPage}
+                    className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
+                  >
+                    Siguiente <ChevronRightIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              }
+            </>
+          )}
         </div>
       </div>
 
