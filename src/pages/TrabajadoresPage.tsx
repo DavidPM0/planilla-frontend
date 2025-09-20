@@ -8,15 +8,10 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
-import {
-  useCallback,
-  useEffect,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-} from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import useFetchApi from "../hooks/use-fetch";
+import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
 
 type TrabajadorAPI = {
@@ -212,34 +207,34 @@ export default function TrabajadoresPage() {
 
   const [formData, setFormData] =
     useState<CreateTrabajadorFormData>(initialFormState);
-  const [trabajadores, setTrabajadores] = useState<TrabajadorAPI[]>([]);
   const [editingTrabajador, setEditingTrabajador] =
     useState<TrabajadorAPI | null>(null);
-  const [filtro, setFiltro] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPorPagina = 9;
+  const [error] = useState<string | null>(null);
 
-  const { get, post, patch } = useFetchApi();
+  const { post, patch } = useFetchApi();
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await get<TrabajadorAPI[]>("/trabajadores");
-      setTrabajadores(data);
-    } catch (err) {
-      setError("No se pudieron cargar los trabajadores.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [get]);
+  // Usar nuestro hook de paginación robusto 🚀
+  const {
+    data: trabajadores,
+    isLoading,
+    error: paginationError,
+    search,
+    setSearch,
+    currentPage,
+    lastPage,
+    nextPage,
+    previousPage,
+    hasNextPage,
+    hasPreviousPage,
+    refresh,
+  } = usePaginationQuery<TrabajadorAPI>("/trabajadores", {
+    limit: 9,
+    initialSearch: "",
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Combinar errores
+  const combinedError = error || paginationError;
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -252,7 +247,7 @@ export default function TrabajadoresPage() {
     const createPromise = async () => {
       try {
         await post("/trabajadores", formData);
-        await fetchData();
+        refresh(); // ¡Usamos el refresh del hook!
         setFormData(initialFormState);
       } finally {
         setIsSubmitting(false);
@@ -281,7 +276,7 @@ export default function TrabajadoresPage() {
     const updatePromise = async () => {
       await patch(`/trabajadores/${editingTrabajador.id}`, updatedData);
       setEditingTrabajador(null);
-      await fetchData();
+      refresh(); // ¡Usamos el refresh del hook!
     };
 
     toast.promise(updatePromise(), {
@@ -293,27 +288,10 @@ export default function TrabajadoresPage() {
     });
   };
 
-  const handleStatusChange = (trabajadorId: number, newStatus: boolean) => {
-    setTrabajadores((current) =>
-      current.map((t) =>
-        t.id === trabajadorId ? { ...t, estadoRegistro: newStatus } : t
-      )
-    );
+  const handleStatusChange = (_trabajadorId: number, _newStatus: boolean) => {
+    // El hook se encarga de mantener la sincronización de datos automáticamente
+    refresh();
   };
-
-  const trabajadoresFiltrados = trabajadores.filter(
-    (t) =>
-      t.nombres.toLowerCase().includes(filtro.toLowerCase()) ||
-      t.apellidos.toLowerCase().includes(filtro.toLowerCase()) ||
-      (t.banco && t.banco.toLowerCase().includes(filtro.toLowerCase())) ||
-      (t.numeroCuenta && t.numeroCuenta.includes(filtro))
-  );
-
-  const totalPaginas = Math.ceil(trabajadoresFiltrados.length / itemsPorPagina);
-  const currentTrabajadores = trabajadoresFiltrados.slice(
-    (currentPage - 1) * itemsPorPagina,
-    currentPage * itemsPorPagina
-  );
 
   return (
     <div className="bg-[#f9fafb] flex flex-col min-h-screen">
@@ -380,9 +358,9 @@ export default function TrabajadoresPage() {
             </label>
             <input
               type="text"
-              value={filtro}
-              onChange={(e) => setFiltro(e.target.value)}
-              placeholder="Buscar por nombre, banco..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nombre, apellidos o número de cuenta..."
               className="block w-full md:w-64 pl-3 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm"
             />
           </div>
@@ -394,8 +372,8 @@ export default function TrabajadoresPage() {
           </h3>
           {isLoading ? (
             <p className="text-center py-4">Cargando...</p>
-          ) : error ? (
-            <p className="text-red-500 text-center py-4">{error}</p>
+          ) : combinedError ? (
+            <p className="text-red-500 text-center py-4">{combinedError}</p>
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -409,7 +387,7 @@ export default function TrabajadoresPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {currentTrabajadores.map((trabajador) => (
+                    {trabajadores.map((trabajador) => (
                       <tr key={trabajador.id}>
                         <td className="px-4 py-2">{`${trabajador.nombres} ${trabajador.apellidos}`}</td>
                         <td className="px-4 py-2">
@@ -457,20 +435,18 @@ export default function TrabajadoresPage() {
               </div>
               <div className="flex justify-between items-center mt-4">
                 <button
-                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                  disabled={currentPage === 1}
+                  onClick={previousPage}
+                  disabled={!hasPreviousPage}
                   className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
                 >
                   <ChevronLeftIcon className="w-5 h-5" /> Anterior
                 </button>
                 <span className="text-sm text-slate-600">
-                  Página {currentPage} de {totalPaginas || 1}
+                  Página {currentPage} de {lastPage || 1}
                 </span>
                 <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(p + 1, totalPaginas))
-                  }
-                  disabled={currentPage === totalPaginas || totalPaginas === 0}
+                  onClick={nextPage}
+                  disabled={!hasNextPage}
                   className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
                 >
                   Siguiente <ChevronRightIcon className="w-5 h-5" />

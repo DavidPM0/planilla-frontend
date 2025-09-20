@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   PlusIcon,
   TrashIcon,
@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import useFetchApi from "../hooks/use-fetch";
+import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
 
 // --- TIPOS DE DATOS ---
@@ -191,51 +192,53 @@ export default function GastosPage() {
   const [selectedYear, setSelectedYear] = useState(defaultYear);
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
 
-  const [gastos, setGastos] = useState<Transaccion[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [busqueda, setBusqueda] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const gastosPorPagina = 5;
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingGasto, setEditingGasto] = useState<Transaccion | null>(null);
 
   const { get, post, patch, del } = useFetchApi();
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        tipo: "GASTO",
-        anio: selectedYear.toString(),
-        mes: selectedMonth.toString(),
-      });
-      if (busqueda) {
-        params.append("search", busqueda);
-      }
+  // Memoizar additionalParams para evitar re-renderizados infinitos
+  const additionalParams = useMemo(
+    () => ({
+      tipo: "GASTO",
+      anio: selectedYear,
+      mes: selectedMonth,
+    }),
+    [selectedYear, selectedMonth]
+  );
 
-      const [gastosData, categoriasData] = await Promise.all([
-        get<Transaccion[]>(`/transacciones?${params.toString()}`),
-        get<Categoria[]>("/categorias?tipo=GASTO"),
-      ]);
+  // ¡Usar nuestro hook de paginación robusto! 🚀
+  const {
+    data: gastos,
+    isLoading,
+    error,
+    search,
+    setSearch,
+    currentPage,
+    lastPage,
+    nextPage,
+    previousPage,
+    refresh,
+  } = usePaginationQuery<Transaccion>("/transacciones", {
+    limit: 5,
+    initialSearch: "",
+    additionalParams,
+  });
 
-      setGastos(gastosData);
-      setCategorias(categoriasData);
-    } catch (err) {
-      setError("No se pudieron cargar los datos.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [get, selectedYear, selectedMonth, busqueda]);
-
+  // Cargar categorías una sola vez
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    const loadCategorias = async () => {
+      try {
+        const categoriasData = await get<Categoria[]>("/categorias?tipo=GASTO");
+        setCategorias(categoriasData);
+      } catch (err) {
+        console.error("No se pudieron cargar las categorías:", err);
+      }
+    };
+    loadCategorias();
+  }, [get]);
 
   const handleAgregar = async (
     gastoData: Omit<CreateTransaccionRequest, "tipo">
@@ -245,7 +248,7 @@ export default function GastosPage() {
       tipo: "GASTO",
     }).then(async () => {
       setShowAddModal(false);
-      await fetchData();
+      refresh();
     });
 
     toast.promise(createPromise, {
@@ -268,7 +271,7 @@ export default function GastosPage() {
       gastoData
     ).then(async () => {
       setEditingGasto(null);
-      await fetchData();
+      refresh();
     });
 
     toast.promise(updatePromise, {
@@ -289,7 +292,7 @@ export default function GastosPage() {
 
     if (window.confirm(`¿Estás seguro de eliminar "${gastoName}"?`)) {
       const deletePromise = del(`/transacciones/${id}`).then(async () => {
-        await fetchData();
+        refresh();
       });
 
       toast.promise(deletePromise, {
@@ -305,9 +308,6 @@ export default function GastosPage() {
     }
   };
 
-  const totalPaginas = Math.ceil(gastos.length / gastosPorPagina);
-  const startIndex = (currentPage - 1) * gastosPorPagina;
-  const gastosPag = gastos.slice(startIndex, startIndex + gastosPorPagina);
   const formatearFecha = (fechaISO: string) =>
     new Date(fechaISO).toLocaleDateString("es-PE");
 
@@ -360,8 +360,8 @@ export default function GastosPage() {
           <div className="w-full md:w-64">
             <input
               type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre o categoría"
               className="block w-full pl-3 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-indigo-500"
             />
@@ -395,7 +395,7 @@ export default function GastosPage() {
                 </tr>
               </thead>
               <tbody>
-                {gastosPag.map((g, idx) => (
+                {gastos.map((g: Transaccion, idx: number) => (
                   <tr
                     key={g.id}
                     className={
@@ -440,20 +440,18 @@ export default function GastosPage() {
 
             <div className="flex justify-between items-center mt-4">
               <button
-                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                onClick={previousPage}
                 disabled={currentPage === 1}
                 className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
               >
                 <ChevronLeftIcon className="w-5 h-5" /> Anterior
               </button>
               <span className="text-sm text-slate-600">
-                Página {currentPage} de {totalPaginas || 1}
+                Página {currentPage} de {lastPage || 1}
               </span>
               <button
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(p + 1, totalPaginas))
-                }
-                disabled={currentPage === totalPaginas || totalPaginas === 0}
+                onClick={nextPage}
+                disabled={currentPage === lastPage || lastPage === 0}
                 className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
               >
                 Siguiente <ChevronRightIcon className="w-5 h-5" />
