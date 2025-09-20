@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import {
   PlusIcon,
   PencilIcon,
@@ -6,26 +6,17 @@ import {
   ChevronRightIcon,
   EyeIcon,
   EyeSlashIcon,
-  TrashIcon,
-  ArrowUturnUpIcon,
-  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 import useFetchApi from "../hooks/use-fetch";
+import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
 
-import type { User } from "../context/auth-context"; // Usamos el tipo User del contexto
+import type { User } from "../context/auth-context";
 import type { UpdateUserFormData } from "../components/edit-user-modal";
 import EditUserModal from "../components/edit-user-modal";
-import { useSearchParams } from "react-router-dom";
+import StatusToggleButton from "../components/usuario-components/StatusToggleButton";
 
 // --- TIPOS DE DATOS ---
-type UserResponse = {
-  data: User[];
-  total: number;
-  page: number;
-  lastPage: number;
-};
-
 type Perfil = {
   id: number;
   nombre: string;
@@ -38,69 +29,6 @@ type CreateUserFormData = {
   correoElectronico: string;
   clave: string;
   perfilesIds: number[];
-};
-
-// --- COMPONENTE StatusToggleButton ---
-// Lo mantenemos aquí para que el archivo sea autocontenido, pero idealmente estaría en su propio archivo
-const StatusToggleButton = ({
-  user,
-  onStatusChange,
-}: {
-  user: User;
-  onStatusChange: (userId: number, newStatus: boolean) => void;
-}) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const { patch } = useFetchApi();
-
-  const handleChangeStatus = async () => {
-    setIsLoading(true);
-    const newStatus = !user.estadoRegistro;
-    try {
-      await patch(`/auth/change-status/${user.id}`, {
-        estadoRegistro: newStatus,
-      });
-      onStatusChange(user.id, newStatus);
-    } catch (error) {
-      alert("No se pudo actualizar el estado del usuario.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isActive = user.estadoRegistro;
-  const buttonStyle = `flex items-center gap-1 px-2 py-1 rounded-md text-xs transition ${
-    isLoading ? "cursor-not-allowed opacity-50" : ""
-  }`;
-  const activeStyle = `bg-red-100 text-red-700 hover:bg-red-200 ${buttonStyle}`;
-  const inactiveStyle = `bg-green-100 text-green-700 hover:bg-green-200 ${buttonStyle}`;
-  const iconStyle = "w-4 h-4";
-
-  if (isLoading) {
-    return (
-      <button className={isActive ? activeStyle : inactiveStyle} disabled>
-        <ArrowPathIcon className={`${iconStyle} animate-spin`} />
-        {isActive ? "Desactivando..." : "Reactivando..."}
-      </button>
-    );
-  }
-
-  return (
-    <button
-      title={isActive ? "Desactivar usuario" : "Reactivar usuario"}
-      onClick={handleChangeStatus}
-      className={isActive ? activeStyle : inactiveStyle}
-    >
-      {isActive ? (
-        <>
-          <TrashIcon className={iconStyle} /> Desactivar
-        </>
-      ) : (
-        <>
-          <ArrowUturnUpIcon className={iconStyle} /> Reactivar
-        </>
-      )}
-    </button>
-  );
 };
 
 // --- COMPONENTE PRINCIPAL ---
@@ -117,79 +45,40 @@ export default function UsuariosPage() {
   const [formData, setFormData] =
     useState<CreateUserFormData>(initialFormState);
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
-  // const [usuarios, setUsuarios] = useState<User[]>([]);
   const [perfiles, setPerfiles] = useState<Perfil[]>([]);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [filtro, setFiltro] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  // const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // const [currentPage, setCurrentPage] = useState(1);
-  // const usuariosPorPagina = 9;
-  const [response, setResponse] = useState<UserResponse>({
-    data: [],
-    total: 0,
-    page: 1,
-    lastPage: 1,
-  });
-  const [currentPage, setCurrentPage] = useState(1);
-  const [search, setSearch] = useState(""); // Renombrado de 'filtro' para más claridad
-  const [isLoading, setIsLoading] = useState(true);
 
   const { get, post, patch } = useFetchApi();
 
-  const fetchData = useCallback(
-    async (page: number, searchTerm: string) => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const params = new URLSearchParams({
-          page: page.toString(),
-          limit: "9", // El límite que usabas antes
-        });
+  // Usar el hook de paginación mejorado
+  const {
+    data: users,
+    isLoading,
+    error: paginationError,
+    search,
+    setSearch,
+    currentPage,
+    lastPage,
+    nextPage,
+    previousPage,
+    hasNextPage,
+    hasPreviousPage,
+    refresh,
+  } = usePaginationQuery<User>("/auth/usuarios", {
+    limit: 10,
+    initialSearch: "",
+  });
 
-        // Punto clave: Asumimos que tu backend acepta un solo parámetro 'search'
-        if (searchTerm) {
-          params.append("search", searchTerm);
-        }
+  // Combinar errores
+  const combinedError = error || paginationError;
 
-        const data = await get<UserResponse>(
-          `/auth/usuarios?${params.toString()}`
-        );
-        setResponse(data);
-      } catch (err) {
-        setError("No se pudieron cargar los usuarios.");
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [get]
-  );
-
+  // Solo necesitamos cargar los perfiles
   useEffect(() => {
-    // Carga los perfiles solo una vez al montar el componente
     get<Perfil[]>("/auth/perfiles")
       .then(setPerfiles)
       .catch(() => setError("No se pudieron cargar los perfiles."));
   }, [get]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      // Cuando el usuario termina de escribir, actualizamos el término de búsqueda
-      // y reseteamos la página a 1
-      setDebouncedSearch(search);
-      setCurrentPage(1);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [search]); // Solo se dispara cuando el usuario escribe
-
-  // useEffect #2: Para Cargar los Datos
-  // Este es el único que llama a la API.
-  useEffect(() => {
-    // Se dispara cuando la página cambia (click en Siguiente/Anterior)
-    // O cuando el debouncedSearch cambia (porque el timer de arriba terminó)
-    fetchData(currentPage, debouncedSearch);
-  }, [currentPage, debouncedSearch, fetchData]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -225,8 +114,8 @@ export default function UsuariosPage() {
 
     const createPromise = async () => {
       await post("/auth/register", payload);
-      // Llama a fetchData con los parámetros iniciales
-      await fetchData(1, "");
+      // Refresca los datos después de crear
+      refresh();
       setFormData(initialFormState);
     };
 
@@ -258,8 +147,8 @@ export default function UsuariosPage() {
     const updatePromise = async () => {
       await patch(`/auth/update-user/${editingUser.id}`, payload);
       setEditingUser(null);
-      // Llama a fetchData con la página y búsqueda actuales para refrescar la vista
-      await fetchData(currentPage, search);
+      // Refresca los datos después de actualizar
+      refresh();
     };
 
     toast.promise(updatePromise(), {
@@ -271,17 +160,10 @@ export default function UsuariosPage() {
     });
   };
 
-  const handleUserStatusChange = (userId: number, newStatus: boolean) => {
-    // Actualiza el estado 'response' en lugar de 'usuarios'
-    setResponse((prevResponse) => {
-      // Creamos un nuevo array de datos mapeando sobre el anterior
-      const updatedData = prevResponse.data.map((user) =>
-        user.id === userId ? { ...user, estadoRegistro: newStatus } : user
-      );
-
-      // Devolvemos el nuevo estado completo, con la data actualizada
-      return { ...prevResponse, data: updatedData };
-    });
+  const handleUserStatusChange = (_userId: number, _newStatus: boolean) => {
+    // El hook se encarga de mantener la sincronización de datos automáticamente
+    // Opcional: podrías llamar refresh() aquí si necesitas recargar los datos inmediatamente
+    refresh();
   };
 
   const formatearFecha = (fechaISO: string | null) => {
@@ -452,8 +334,8 @@ export default function UsuariosPage() {
           </h3>
           {isLoading ? (
             <p>Cargando usuarios...</p>
-          ) : error ? (
-            <p className="text-red-500">{error}</p>
+          ) : combinedError ? (
+            <p className="text-red-500">{combinedError}</p>
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -469,7 +351,7 @@ export default function UsuariosPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {response.data.map((user) => (
+                    {users.map((user) => (
                       <tr key={user.id}>
                         <td className="px-4 py-2">{`${user.nombres} ${user.apellidoPaterno}`}</td>
                         <td className="px-4 py-2">{user.correoElectronico}</td>
@@ -512,23 +394,18 @@ export default function UsuariosPage() {
               </div>
               <div className="flex justify-between items-center mt-4">
                 <button
-                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                  disabled={response.page === 1}
+                  onClick={previousPage}
+                  disabled={!hasPreviousPage}
                   className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
                 >
                   <ChevronLeftIcon className="w-5 h-5" /> Anterior
                 </button>
                 <span className="text-sm text-slate-600">
-                  Página {response.page} de {response.lastPage || 1}
+                  Página {currentPage} de {lastPage || 1}
                 </span>
                 <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(p + 1, response.lastPage))
-                  }
-                  disabled={
-                    response.page === response.lastPage ||
-                    response.lastPage === 0
-                  }
+                  onClick={nextPage}
+                  disabled={!hasNextPage}
                   className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
                 >
                   Siguiente <ChevronRightIcon className="w-5 h-5" />
