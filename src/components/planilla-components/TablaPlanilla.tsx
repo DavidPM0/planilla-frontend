@@ -6,7 +6,7 @@ import {
   CurrencyDollarIcon,
   ClockIcon,
 } from "@heroicons/react/24/outline";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { DetallePlanillaAPI } from "../../pages/PlanillaPage"; // Importamos el tipo
 
 interface TablaPlanillaProps {
@@ -19,6 +19,14 @@ interface TablaPlanillaProps {
     tipo: "ADELANTO" | "DESCUENTO"
   ) => void;
   onMarcarPago: (detalleId: number) => void;
+  // Props de paginación
+  currentPage?: number;
+  lastPage?: number;
+  hasNextPage?: boolean;
+  hasPreviousPage?: boolean;
+  onNextPage?: () => void;
+  onPreviousPage?: () => void;
+  onGoToPage?: (page: number) => void;
 }
 
 export default function TablaPlanilla({
@@ -28,16 +36,46 @@ export default function TablaPlanilla({
   onOpenHistorial,
   onOpenAjuste,
   onMarcarPago,
+  // Props de paginación
+  currentPage = 1,
+  lastPage = 1,
+  hasNextPage = false,
+  hasPreviousPage = false,
+  onNextPage,
+  onPreviousPage,
+  onGoToPage,
 }: TablaPlanillaProps) {
-  const [currentPage, setCurrentPage] = useState(1);
+  // Si se proporcionan props de paginación, usar paginación del servidor
+  // Si no, usar paginación del cliente (comportamiento original)
+  const useServerPagination = Boolean(
+    onNextPage && onPreviousPage && onGoToPage
+  );
+
+  // Solo usar paginación del cliente si no hay paginación del servidor
+  const [currentClientPage, setCurrentClientPage] = useState(1);
   const itemsPorPagina = 8;
 
-  const totalPaginas = Math.ceil(detalles.length / itemsPorPagina);
-  const startIndex = (currentPage - 1) * itemsPorPagina;
-  const detallesPaginados = detalles.slice(
-    startIndex,
-    startIndex + itemsPorPagina
-  );
+  const totalPaginas = useServerPagination
+    ? lastPage
+    : Math.ceil(detalles.length / itemsPorPagina);
+
+  const currentDisplayPage = useServerPagination
+    ? currentPage
+    : currentClientPage;
+
+  const detallesPaginados = useServerPagination
+    ? detalles // Los datos ya vienen paginados del servidor
+    : detalles.slice(
+        (currentClientPage - 1) * itemsPorPagina,
+        currentClientPage * itemsPorPagina
+      );
+
+  // Efectos para resetear la paginación del cliente cuando cambian los datos
+  useEffect(() => {
+    if (!useServerPagination) {
+      setCurrentClientPage(1);
+    }
+  }, [detalles.length, useServerPagination]);
 
   if (isLoading)
     return (
@@ -45,22 +83,17 @@ export default function TablaPlanilla({
     );
   if (error)
     return (
-      <div className="text-center p-8 text-red-500 bg-red-50 rounded-lg">
-        {error}
-      </div>
+      <div className="text-center p-8 text-red-500 bg-red-50">{error}</div>
     );
   if (detalles.length === 0 && !isLoading)
     return (
-      <div className="text-center p-8 text-slate-500 bg-slate-50 rounded-lg">
+      <div className="text-center p-8 text-slate-500 bg-slate-50">
         No hay datos para este período. Puede que necesites generar la planilla.
       </div>
     );
 
   return (
-    <div className="bg-white shadow rounded-lg p-4 overflow-x-auto flex-1 flex flex-col">
-      <h2 className="text-lg font-semibold text-slate-700 mb-4">
-        Lista de empleados
-      </h2>
+    <div className="overflow-x-auto flex-1 flex flex-col">
       <div className="flex-grow">
         <table className="min-w-full text-sm text-left text-slate-600">
           <thead>
@@ -142,27 +175,47 @@ export default function TablaPlanilla({
           </tbody>
         </table>
       </div>
-      {totalPaginas > 1 && (
-        <div className="flex justify-between items-center mt-4">
+
+      {/* Paginación */}
+      {
+        <div className="flex justify-between items-center px-6 py-4 border-t border-slate-200 bg-slate-50">
           <button
-            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-            disabled={currentPage === 1}
-            className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
+            onClick={() => {
+              if (useServerPagination && onPreviousPage) {
+                onPreviousPage();
+              } else {
+                setCurrentClientPage((p) => Math.max(p - 1, 1));
+              }
+            }}
+            disabled={
+              useServerPagination ? !hasPreviousPage : currentDisplayPage === 1
+            }
+            className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           >
-            <ChevronLeftIcon className="w-5 h-5" /> Anterior
+            <ChevronLeftIcon className="w-4 h-4" /> Anterior
           </button>
-          <span className="text-sm text-slate-600">
-            Página {currentPage} de {totalPaginas || 1}
+          <span className="text-sm text-slate-700 font-medium bg-white px-3 py-1 rounded-md border border-slate-200">
+            Página {currentDisplayPage} de {totalPaginas || 1}
           </span>
           <button
-            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPaginas))}
-            disabled={currentPage === totalPaginas || totalPaginas === 0}
-            className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
+            onClick={() => {
+              if (useServerPagination && onNextPage) {
+                onNextPage();
+              } else {
+                setCurrentClientPage((p) => Math.min(p + 1, totalPaginas));
+              }
+            }}
+            disabled={
+              useServerPagination
+                ? !hasNextPage
+                : currentDisplayPage === totalPaginas || totalPaginas === 0
+            }
+            className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           >
-            Siguiente <ChevronRightIcon className="w-5 h-5" />
+            Siguiente <ChevronRightIcon className="w-4 h-4" />
           </button>
         </div>
-      )}
+      }
     </div>
   );
 }

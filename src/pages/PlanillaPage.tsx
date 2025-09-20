@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  BanknotesIcon,
+  MinusCircleIcon,
+  CurrencyDollarIcon,
+  ClockIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 import FiltrosPlanilla from "../components/planilla-components/FiltrosPlanilla";
 import ModalAjuste, {
   type AjustePayload,
   type TipoAjuste,
 } from "../components/planilla-components/ModalAjuste";
 import ModalHistorial from "../components/planilla-components/ModalHistorial";
-import TablaPlanilla from "../components/planilla-components/TablaPlanilla";
 import useFetchApi from "../hooks/use-fetch";
+import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
 
 // Helper function for consistent error handling
@@ -51,7 +60,8 @@ const createSpecificPlanilla = async (
   mes: number,
   anio: number,
   post: any,
-  fetchPlanilla: () => Promise<void>
+  fetchPlanilla: () => Promise<void>,
+  refreshDetalles: () => void
 ) => {
   const endpoints = {
     0: "/planillas/procesar-mensual",
@@ -74,6 +84,7 @@ const createSpecificPlanilla = async (
 
   await post(endpoint, { mes, anio });
   await fetchPlanilla();
+  refreshDetalles(); // Refrescar también los detalles paginados
   return `Planilla ${nombre} creada exitosamente`;
 };
 
@@ -91,6 +102,12 @@ export type DetallePlanillaAPI = {
     apellidos: string;
     banco: string;
     numeroCuenta: string;
+  };
+  // Nuevo campo opcional para información de la planilla cuando se usa paginación
+  planilla?: {
+    id: number;
+    periodo: number;
+    descripcion: string;
   };
 };
 
@@ -115,9 +132,7 @@ export default function PlanillaPage() {
 
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
-  const [busqueda, setBusqueda] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const [planillas, setPlanillas] = useState<PlanillaAPI[]>([]);
   const [planillaSeleccionada, setPlanillaSeleccionada] =
@@ -130,16 +145,41 @@ export default function PlanillaPage() {
     tipo: TipoAjuste;
   } | null>(null);
 
+  // Hook de paginación para los detalles de planilla
+  const {
+    data: detallesPaginados,
+    isLoading: isLoadingDetalles,
+    error: errorDetalles,
+    search: busqueda,
+    setSearch: setBusqueda,
+    currentPage,
+    lastPage,
+    hasNextPage,
+    hasPreviousPage,
+    nextPage,
+    previousPage,
+    refresh: refreshDetalles,
+  } = usePaginationQuery<DetallePlanillaAPI>("/planillas/detalles-paginados", {
+    limit: 2,
+    initialSearch: "",
+    additionalParams: {
+      anio: selectedYear,
+      mes: selectedMonth,
+      // Solo filtrar por período si hay una planilla seleccionada
+      ...(planillaSeleccionada && {
+        periodo: planillaSeleccionada.planilla.periodo,
+      }),
+    },
+  });
+
   const fetchPlanilla = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
     setPlanillas([]);
     try {
       const params = new URLSearchParams({
         anio: selectedYear.toString(),
         mes: selectedMonth.toString(),
       });
-      if (busqueda.trim()) params.append("buscar", busqueda.trim());
 
       const data = await get<PlanillaAPI[]>(
         `/planillas/detalles?${params.toString()}`
@@ -159,21 +199,19 @@ export default function PlanillaPage() {
         setPlanillas([]);
         setPlanillaSeleccionada(null);
       } else {
-        setError(
-          err.response?.data?.message || "Error al cargar las planillas."
+        console.error(
+          "Error al cargar las planillas:",
+          err.response?.data?.message || err.message
         );
       }
     } finally {
       setIsLoading(false);
     }
-  }, [get, selectedYear, selectedMonth, busqueda]);
+  }, [get, selectedYear, selectedMonth]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchPlanilla();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [fetchPlanilla, busqueda]);
+    fetchPlanilla();
+  }, [fetchPlanilla]);
 
   const handleRegenerarPlanilla = async () => {
     if (!planillaSeleccionada) {
@@ -215,6 +253,7 @@ export default function PlanillaPage() {
           }
         );
         await fetchPlanilla();
+        refreshDetalles(); // Refrescar también los detalles paginados
         return response?.mensaje || "Planilla regenerada correctamente";
       },
       {
@@ -237,6 +276,7 @@ export default function PlanillaPage() {
         });
         setAjusteVisible(null);
         await fetchPlanilla();
+        refreshDetalles(); // Refrescar también los detalles paginados
         return "Ajuste guardado exitosamente";
       },
       {
@@ -259,6 +299,7 @@ export default function PlanillaPage() {
       async () => {
         await patch(`/planillas/detalles/${detalleId}/pagar`, {});
         await fetchPlanilla();
+        refreshDetalles(); // Refrescar también los detalles paginados
         return "Pago registrado exitosamente";
       },
       {
@@ -284,6 +325,7 @@ export default function PlanillaPage() {
       async () => {
         await patch(`/planillas/${planillaId}/estado`, { estado: nuevoEstado });
         await fetchPlanilla();
+        refreshDetalles(); // Refrescar también los detalles paginados
         return `Planilla ${estadoTexto
           .replace("procesar", "procesada")
           .replace("marcar como pagada", "marcada como pagada")} exitosamente`;
@@ -319,9 +361,21 @@ export default function PlanillaPage() {
 
       {/* Selector de Planillas - Siempre mostrar los 3 períodos */}
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-        <h3 className="text-lg font-semibold text-slate-800 mb-3">
-          Planillas del Período
-        </h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-slate-800">
+            Planillas del Período
+          </h3>
+          <button
+            onClick={() => setPlanillaSeleccionada(null)}
+            className={`px-4 py-2 text-sm rounded-lg font-medium transition-all duration-200 ${
+              !planillaSeleccionada
+                ? "bg-indigo-600 text-white shadow-md"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300"
+            }`}
+          >
+            📊 Ver todas las planillas
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Definir los 3 períodos posibles */}
           {[
@@ -468,7 +522,8 @@ export default function PlanillaPage() {
                               selectedMonth,
                               selectedYear,
                               post,
-                              fetchPlanilla
+                              fetchPlanilla,
+                              refreshDetalles
                             );
                           },
                           {
@@ -515,33 +570,177 @@ export default function PlanillaPage() {
         </div>
       )}
 
-      {/* Búsqueda - pegada a la tabla */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-slate-800">
-            Detalles de Planilla
-          </h3>
-          <div className="w-64">
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              disabled={isLoading}
-              placeholder="Buscar por nombre, cuenta o banco"
-              className="block w-full pl-3 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50"
-            />
+      {/* Lista de Empleados con tabla integrada */}
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+        {/* Header con título y búsqueda */}
+        <div className="p-4 border-b border-slate-200">
+          <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+            <div className="flex-1">
+              <h3 className="text-md font-semibold text-slate-700">
+                Lista de Empleados
+                {planillaSeleccionada && (
+                  <span className="text-base font-normal text-slate-600 ml-2">
+                    •{" "}
+                    {planillaSeleccionada.planilla.descripcion ||
+                      (planillaSeleccionada.planilla.periodo === 0
+                        ? "Mensual"
+                        : planillaSeleccionada.planilla.periodo === 1
+                        ? "Primera Quincena"
+                        : "Segunda Quincena")}
+                  </span>
+                )}
+                {!planillaSeleccionada && (
+                  <span className="text-base font-normal text-slate-600 ml-2">
+                    • Todas las planillas
+                  </span>
+                )}
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">
+                {selectedMonth}/{selectedYear}
+              </p>
+            </div>
+            <div className="w-full sm:w-80">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  disabled={isLoadingDetalles}
+                  placeholder="Buscar por nombre, apellidos o número de cuenta..."
+                  className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-50 transition-colors"
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <TablaPlanilla
-        detalles={planillaSeleccionada?.detalles || []}
-        isLoading={isLoading}
-        error={error}
-        onOpenHistorial={setHistorialVisible}
-        onOpenAjuste={(detalle, tipo) => setAjusteVisible({ detalle, tipo })}
-        onMarcarPago={handleMarcarPago}
-      />
+        {/* Tabla integrada */}
+        {isLoadingDetalles ? (
+          <p className="text-center py-4">Cargando...</p>
+        ) : errorDetalles ? (
+          <p className="text-red-500 text-center py-4">{errorDetalles}</p>
+        ) : detallesPaginados.length === 0 ? (
+          <p className="text-center py-4 text-slate-500">
+            No hay datos para este período. Puede que necesites generar la
+            planilla.
+          </p>
+        ) : (
+          <div className="p-4">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm text-left text-slate-600">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700">
+                    <th className="px-4 py-3">Nombres y Apellidos</th>
+                    <th className="px-4 py-3">Monto Base</th>
+                    <th className="px-4 py-3">Total Ajustes</th>
+                    <th className="px-4 py-3">Neto a Pagar</th>
+                    <th className="px-4 py-3">Estado</th>
+                    <th className="px-4 py-3 text-center">Acciones</th>
+                    <th className="px-4 py-3 text-center">Historial</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detallesPaginados.map((detalle) => (
+                    <tr key={detalle.id}>
+                      <td className="px-4 py-2">
+                        {detalle.trabajador.nombres}{" "}
+                        {detalle.trabajador.apellidos}
+                      </td>
+                      <td className="px-4 py-2">
+                        S/ {Number(detalle.montoBase || 0).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span
+                          className={`font-medium ${
+                            (detalle.totalAjustes || 0) >= 0
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          S/ {Number(detalle.totalAjustes || 0).toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 font-semibold">
+                        S/ {Number(detalle.montoFinalAPagar || 0).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            detalle.estadoPago === "PAGADO"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {detalle.estadoPago}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            onClick={() =>
+                              setAjusteVisible({ detalle, tipo: "ADELANTO" })
+                            }
+                            className="flex items-center gap-1 px-2 py-1 rounded-md bg-green-100 text-green-700 hover:bg-green-200 text-xs"
+                          >
+                            <BanknotesIcon className="w-4 h-4" /> Adelanto
+                          </button>
+                          <button
+                            onClick={() =>
+                              setAjusteVisible({ detalle, tipo: "DESCUENTO" })
+                            }
+                            className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-100 text-red-700 hover:bg-red-200 text-xs"
+                          >
+                            <MinusCircleIcon className="w-4 h-4" /> Descuento
+                          </button>
+                          {detalle.estadoPago === "PENDIENTE" && (
+                            <button
+                              onClick={() => handleMarcarPago(detalle.id)}
+                              className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs"
+                            >
+                              <CurrencyDollarIcon className="w-4 h-4" /> Marcar
+                              Pagado
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <button
+                          onClick={() => setHistorialVisible(detalle)}
+                          className="flex items-center gap-1 px-2 py-1 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs"
+                        >
+                          <ClockIcon className="w-4 h-4" /> Ver historial
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-between items-center mt-4">
+              <button
+                onClick={previousPage}
+                disabled={!hasPreviousPage}
+                className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
+              >
+                <ChevronLeftIcon className="w-5 h-5" /> Anterior
+              </button>
+              <span className="text-sm text-slate-600">
+                Página {currentPage} de {lastPage || 1}
+              </span>
+              <button
+                onClick={nextPage}
+                disabled={!hasNextPage}
+                className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
+              >
+                Siguiente <ChevronRightIcon className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       {historialVisible && (
         <ModalHistorial
           show={!!historialVisible}

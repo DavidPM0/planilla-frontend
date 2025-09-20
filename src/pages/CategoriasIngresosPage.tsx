@@ -5,6 +5,7 @@ import {
   PencilIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 import useFetchApi from "../hooks/use-fetch";
 import { usePaginationQuery } from "../hooks/use-pagination-query";
@@ -293,36 +294,25 @@ export default function CategoriasIngresosPage() {
           </form>
 
           {/* --- BUSCADOR --- */}
-          <div className="w-full md:w-64 relative">
+          <div className="w-full md:w-64">
             <label
               htmlFor="buscar"
               className="block text-sm font-medium text-slate-700 mb-1"
             >
               Buscar categoría
             </label>
-            <div className="relative text-slate-400 focus-within:text-indigo-500">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
+              </div>
               <input
                 id="buscar"
                 type="text"
                 value={filtro}
                 onChange={(e) => setFiltro(e.target.value)}
                 placeholder="Buscar categoría..."
-                className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm"
+                className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
-              <svg
-                className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
-                />
-              </svg>
             </div>
           </div>
         </div>
