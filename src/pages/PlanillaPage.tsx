@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -60,7 +60,7 @@ const createSpecificPlanilla = async (
   mes: number,
   anio: number,
   post: any,
-  fetchPlanilla: () => Promise<void>,
+  refreshPlanillasPreservingSelection: () => Promise<void>,
   refreshDetalles: () => void
 ) => {
   const endpoints = {
@@ -83,7 +83,7 @@ const createSpecificPlanilla = async (
   }
 
   await post(endpoint, { mes, anio });
-  await fetchPlanilla();
+  await refreshPlanillasPreservingSelection();
   refreshDetalles(); // Refrescar también los detalles paginados
   return `Planilla ${nombre} creada exitosamente`;
 };
@@ -96,6 +96,7 @@ export type DetallePlanillaAPI = {
   montoFinalAPagar: number;
   estadoPago: "PENDIENTE" | "PAGADO";
   fechaAPagar: string;
+  fechaPago?: string; // Cuándo se marcó como pagado (opcional)
   trabajador: {
     id: number;
     nombres: string;
@@ -137,6 +138,14 @@ export default function PlanillaPage() {
   const [planillas, setPlanillas] = useState<PlanillaAPI[]>([]);
   const [planillaSeleccionada, setPlanillaSeleccionada] =
     useState<PlanillaAPI | null>(null);
+
+  // Ref para mantener siempre la referencia más actual de la planilla seleccionada
+  const planillaSeleccionadaRef = useRef<PlanillaAPI | null>(null);
+
+  // Actualizar ref cada vez que cambie la selección
+  useEffect(() => {
+    planillaSeleccionadaRef.current = planillaSeleccionada;
+  }, [planillaSeleccionada]);
 
   const [historialVisible, setHistorialVisible] =
     useState<DetallePlanillaAPI | null>(null);
@@ -209,6 +218,78 @@ export default function PlanillaPage() {
     }
   }, [get, selectedYear, selectedMonth]);
 
+  // Nueva función que actualiza datos pero mantiene selección
+  const refreshPlanillasPreservingSelection = useCallback(async () => {
+    // Usar el ref para obtener el valor más actual
+    const currentPeriodo = planillaSeleccionadaRef.current?.planilla.periodo;
+    console.log("🔍 Preserving selection - Current periodo:", currentPeriodo);
+    console.log(
+      "🔍 Current planilla:",
+      planillaSeleccionadaRef.current?.planilla.descripcion
+    );
+
+    try {
+      const params = new URLSearchParams({
+        anio: selectedYear.toString(),
+        mes: selectedMonth.toString(),
+      });
+
+      const data = await get<PlanillaAPI[]>(
+        `/planillas/detalles?${params.toString()}`
+      );
+
+      console.log(
+        "📋 Available planillas after refresh:",
+        data.map((p) => ({
+          id: p.planilla.id,
+          periodo: p.planilla.periodo,
+          descripcion: p.planilla.descripcion,
+        }))
+      );
+
+      setPlanillas(data);
+
+      // Intentar mantener la misma planilla seleccionada por período
+      if (currentPeriodo !== undefined && data.length > 0) {
+        const planillaConMismoPeriodo = data.find(
+          (p) => p.planilla.periodo === currentPeriodo
+        );
+        console.log(
+          "🎯 Found planilla with same periodo:",
+          planillaConMismoPeriodo?.planilla.descripcion
+        );
+
+        if (planillaConMismoPeriodo) {
+          setPlanillaSeleccionada(planillaConMismoPeriodo);
+          console.log(
+            "✅ Selection preserved:",
+            planillaConMismoPeriodo.planilla.descripcion
+          );
+        } else {
+          // Si no existe la planilla del mismo período, seleccionar la primera
+          setPlanillaSeleccionada(data[0]);
+          console.log(
+            "⚠️ Fallback to first planilla:",
+            data[0].planilla.descripcion
+          );
+        }
+      } else if (data.length > 0) {
+        // Si no había selección previa, seleccionar la primera
+        setPlanillaSeleccionada(data[0]);
+        console.log(
+          "🆕 No previous selection, selecting first:",
+          data[0].planilla.descripcion
+        );
+      } else {
+        setPlanillaSeleccionada(null);
+        console.log("❌ No planillas available");
+      }
+    } catch (err: any) {
+      console.error("Error refreshing planillas:", err);
+      throw err; // Re-lanzar el error para que el toast lo maneje
+    }
+  }, [get, selectedYear, selectedMonth]);
+
   useEffect(() => {
     fetchPlanilla();
   }, [fetchPlanilla]);
@@ -252,7 +333,7 @@ export default function PlanillaPage() {
             motivoReemplazo: motivo,
           }
         );
-        await fetchPlanilla();
+        await refreshPlanillasPreservingSelection();
         refreshDetalles(); // Refrescar también los detalles paginados
         return response?.mensaje || "Planilla regenerada correctamente";
       },
@@ -275,7 +356,7 @@ export default function PlanillaPage() {
           tipo,
         });
         setAjusteVisible(null);
-        await fetchPlanilla();
+        await refreshPlanillasPreservingSelection(); // Mantener selección
         refreshDetalles(); // Refrescar también los detalles paginados
         return "Ajuste guardado exitosamente";
       },
@@ -298,7 +379,7 @@ export default function PlanillaPage() {
     await handleOperationWithToast(
       async () => {
         await patch(`/planillas/detalles/${detalleId}/pagar`, {});
-        await fetchPlanilla();
+        await refreshPlanillasPreservingSelection(); // Mantener selección
         refreshDetalles(); // Refrescar también los detalles paginados
         return "Pago registrado exitosamente";
       },
@@ -324,7 +405,7 @@ export default function PlanillaPage() {
     await handleOperationWithToast(
       async () => {
         await patch(`/planillas/${planillaId}/estado`, { estado: nuevoEstado });
-        await fetchPlanilla();
+        await refreshPlanillasPreservingSelection();
         refreshDetalles(); // Refrescar también los detalles paginados
         return `Planilla ${estadoTexto
           .replace("procesar", "procesada")
@@ -340,6 +421,25 @@ export default function PlanillaPage() {
         defaultError: `Error al ${estadoTexto} la planilla`,
       }
     );
+  };
+
+  // Helper functions para validar si se pueden hacer ajustes
+  const puedeHacerAdelanto = (detalle: DetallePlanillaAPI): boolean => {
+    // No se puede hacer adelanto si ya está pagado
+    if (detalle.estadoPago === "PAGADO") return false;
+
+    // Lógica simple: Si el monto final a pagar es mayor que 0,
+    // significa que aún no se ha adelantado todo el monto base
+    // Esta es una aproximación conservadora
+    return (detalle.montoFinalAPagar || 0) > 0;
+  };
+
+  const puedeHacerDescuento = (detalle: DetallePlanillaAPI): boolean => {
+    // No se puede hacer descuento si ya está pagado
+    if (detalle.estadoPago === "PAGADO") return false;
+
+    // Solo se puede hacer descuento si hay monto final a pagar
+    return (detalle.montoFinalAPagar || 0) > 0;
   };
 
   return (
@@ -522,7 +622,7 @@ export default function PlanillaPage() {
                               selectedMonth,
                               selectedYear,
                               post,
-                              fetchPlanilla,
+                              refreshPlanillasPreservingSelection,
                               refreshDetalles
                             );
                           },
@@ -683,7 +783,19 @@ export default function PlanillaPage() {
                             onClick={() =>
                               setAjusteVisible({ detalle, tipo: "ADELANTO" })
                             }
-                            className="flex items-center gap-1 px-2 py-1 rounded-md bg-green-100 text-green-700 hover:bg-green-200 text-xs"
+                            disabled={!puedeHacerAdelanto(detalle)}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
+                              puedeHacerAdelanto(detalle)
+                                ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            }`}
+                            title={
+                              !puedeHacerAdelanto(detalle)
+                                ? detalle.estadoPago === "PAGADO"
+                                  ? "No se pueden hacer ajustes en registros pagados"
+                                  : "No hay monto disponible para adelantos"
+                                : ""
+                            }
                           >
                             <BanknotesIcon className="w-4 h-4" /> Adelanto
                           </button>
@@ -691,7 +803,19 @@ export default function PlanillaPage() {
                             onClick={() =>
                               setAjusteVisible({ detalle, tipo: "DESCUENTO" })
                             }
-                            className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-100 text-red-700 hover:bg-red-200 text-xs"
+                            disabled={!puedeHacerDescuento(detalle)}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
+                              puedeHacerDescuento(detalle)
+                                ? "bg-red-100 text-red-700 hover:bg-red-200"
+                                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            }`}
+                            title={
+                              !puedeHacerDescuento(detalle)
+                                ? detalle.estadoPago === "PAGADO"
+                                  ? "No se pueden hacer ajustes en registros pagados"
+                                  : "No hay monto disponible para descuentos"
+                                : ""
+                            }
                           >
                             <MinusCircleIcon className="w-4 h-4" /> Descuento
                           </button>
