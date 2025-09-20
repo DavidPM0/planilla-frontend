@@ -16,8 +16,16 @@ import { toast } from "sonner";
 import type { User } from "../context/auth-context"; // Usamos el tipo User del contexto
 import type { UpdateUserFormData } from "../components/edit-user-modal";
 import EditUserModal from "../components/edit-user-modal";
+import { useSearchParams } from "react-router-dom";
 
 // --- TIPOS DE DATOS ---
+type UserResponse = {
+  data: User[];
+  total: number;
+  page: number;
+  lastPage: number;
+};
+
 type Perfil = {
   id: number;
   nombre: string;
@@ -109,41 +117,79 @@ export default function UsuariosPage() {
   const [formData, setFormData] =
     useState<CreateUserFormData>(initialFormState);
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
-  const [usuarios, setUsuarios] = useState<User[]>([]);
+  // const [usuarios, setUsuarios] = useState<User[]>([]);
   const [perfiles, setPerfiles] = useState<Perfil[]>([]);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [filtro, setFiltro] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // const [currentPage, setCurrentPage] = useState(1);
+  // const usuariosPorPagina = 9;
+  const [response, setResponse] = useState<UserResponse>({
+    data: [],
+    total: 0,
+    page: 1,
+    lastPage: 1,
+  });
   const [currentPage, setCurrentPage] = useState(1);
-  const usuariosPorPagina = 9;
+  const [search, setSearch] = useState(""); // Renombrado de 'filtro' para más claridad
+  const [isLoading, setIsLoading] = useState(true);
 
   const { get, post, patch } = useFetchApi();
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [usersData, perfilesData] = await Promise.all([
-        get<User[]>("/auth/usuarios"),
-        get<Perfil[]>("/auth/perfiles"),
-      ]);
-      setUsuarios(usersData);
-      setPerfiles(perfilesData);
+  const fetchData = useCallback(
+    async (page: number, searchTerm: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: "9", // El límite que usabas antes
+        });
 
-      if (perfilesData.length > 0 && formData.perfilesIds.length === 0) {
-        setFormData((prev) => ({ ...prev, perfilesIds: [perfilesData[0].id] }));
+        // Punto clave: Asumimos que tu backend acepta un solo parámetro 'search'
+        if (searchTerm) {
+          params.append("search", searchTerm);
+        }
+
+        const data = await get<UserResponse>(
+          `/auth/usuarios?${params.toString()}`
+        );
+        setResponse(data);
+      } catch (err) {
+        setError("No se pudieron cargar los usuarios.");
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      setError("No se pudieron cargar los datos de la página.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [get, formData.perfilesIds.length]);
+    },
+    [get]
+  );
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    // Carga los perfiles solo una vez al montar el componente
+    get<Perfil[]>("/auth/perfiles")
+      .then(setPerfiles)
+      .catch(() => setError("No se pudieron cargar los perfiles."));
+  }, [get]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Cuando el usuario termina de escribir, actualizamos el término de búsqueda
+      // y reseteamos la página a 1
+      setDebouncedSearch(search);
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]); // Solo se dispara cuando el usuario escribe
+
+  // useEffect #2: Para Cargar los Datos
+  // Este es el único que llama a la API.
+  useEffect(() => {
+    // Se dispara cuando la página cambia (click en Siguiente/Anterior)
+    // O cuando el debouncedSearch cambia (porque el timer de arriba terminó)
+    fetchData(currentPage, debouncedSearch);
+  }, [currentPage, debouncedSearch, fetchData]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -179,7 +225,8 @@ export default function UsuariosPage() {
 
     const createPromise = async () => {
       await post("/auth/register", payload);
-      await fetchData();
+      // Llama a fetchData con los parámetros iniciales
+      await fetchData(1, "");
       setFormData(initialFormState);
     };
 
@@ -211,7 +258,8 @@ export default function UsuariosPage() {
     const updatePromise = async () => {
       await patch(`/auth/update-user/${editingUser.id}`, payload);
       setEditingUser(null);
-      await fetchData();
+      // Llama a fetchData con la página y búsqueda actuales para refrescar la vista
+      await fetchData(currentPage, search);
     };
 
     toast.promise(updatePromise(), {
@@ -224,31 +272,22 @@ export default function UsuariosPage() {
   };
 
   const handleUserStatusChange = (userId: number, newStatus: boolean) => {
-    setUsuarios((currentUsers) =>
-      currentUsers.map((user) =>
+    // Actualiza el estado 'response' en lugar de 'usuarios'
+    setResponse((prevResponse) => {
+      // Creamos un nuevo array de datos mapeando sobre el anterior
+      const updatedData = prevResponse.data.map((user) =>
         user.id === userId ? { ...user, estadoRegistro: newStatus } : user
-      )
-    );
+      );
+
+      // Devolvemos el nuevo estado completo, con la data actualizada
+      return { ...prevResponse, data: updatedData };
+    });
   };
 
   const formatearFecha = (fechaISO: string | null) => {
     if (!fechaISO) return "-";
     return new Date(fechaISO).toLocaleString("es-PE");
   };
-
-  const usuariosFiltrados = usuarios.filter(
-    (u) =>
-      u.nombres.toLowerCase().includes(filtro.toLowerCase()) ||
-      u.apellidoPaterno.toLowerCase().includes(filtro.toLowerCase()) ||
-      u.correoElectronico.toLowerCase().includes(filtro.toLowerCase())
-  );
-
-  const totalPaginas = Math.ceil(usuariosFiltrados.length / usuariosPorPagina);
-  const startIndex = (currentPage - 1) * usuariosPorPagina;
-  const currentUsuarios = usuariosFiltrados.slice(
-    startIndex,
-    startIndex + usuariosPorPagina
-  );
 
   return (
     <div className="bg-[#f9fafb] flex flex-col min-h-screen">
@@ -384,9 +423,9 @@ export default function UsuariosPage() {
             <div className="relative text-slate-400 focus-within:text-indigo-500">
               <input
                 type="text"
-                value={filtro}
-                onChange={(e) => setFiltro(e.target.value)}
-                placeholder="Buscar por nombre, correo..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre, apellido, correo..."
                 className="block w-full md:w-64 pl-10 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm text-sm"
               />
               <svg
@@ -430,7 +469,7 @@ export default function UsuariosPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {currentUsuarios.map((user) => (
+                    {response.data.map((user) => (
                       <tr key={user.id}>
                         <td className="px-4 py-2">{`${user.nombres} ${user.apellidoPaterno}`}</td>
                         <td className="px-4 py-2">{user.correoElectronico}</td>
@@ -474,19 +513,22 @@ export default function UsuariosPage() {
               <div className="flex justify-between items-center mt-4">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                  disabled={currentPage === 1}
+                  disabled={response.page === 1}
                   className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
                 >
                   <ChevronLeftIcon className="w-5 h-5" /> Anterior
                 </button>
                 <span className="text-sm text-slate-600">
-                  Página {currentPage} de {totalPaginas || 1}
+                  Página {response.page} de {response.lastPage || 1}
                 </span>
                 <button
                   onClick={() =>
-                    setCurrentPage((p) => Math.min(p + 1, totalPaginas))
+                    setCurrentPage((p) => Math.min(p + 1, response.lastPage))
                   }
-                  disabled={currentPage === totalPaginas || totalPaginas === 0}
+                  disabled={
+                    response.page === response.lastPage ||
+                    response.lastPage === 0
+                  }
                   className="flex items-center gap-1 text-sm text-slate-600 disabled:opacity-50"
                 >
                   Siguiente <ChevronRightIcon className="w-5 h-5" />
