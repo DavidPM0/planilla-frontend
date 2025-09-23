@@ -316,7 +316,6 @@ export default function ContratosPage() {
     hasPreviousPage,
     nextPage,
     previousPage,
-    goToPage,
     refresh,
   } = usePaginationQuery<ContratoAPI>(
     `/contratos/por-trabajador/${trabajadorId}/paginated`,
