@@ -14,7 +14,11 @@ import ModalAjuste, {
   type TipoAjuste,
 } from "../components/planilla-components/ModalAjuste";
 import ModalHistorial from "../components/planilla-components/ModalHistorial";
+import RegenerarPlanillaDialog from "../components/planilla-components/RegenerarPlanillaDialog";
+import MarcarPagoDialog from "../components/planilla-components/MarcarPagoDialog";
+import CambiarEstadoPlanillaDialog from "../components/planilla-components/CambiarEstadoPlanillaDialog";
 import useFetchApi from "../hooks/use-fetch";
+import { formatFechaUTC } from "../utils/date-utils";
 import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
 
@@ -153,6 +157,35 @@ export default function PlanillaPage() {
     detalle: DetallePlanillaAPI;
     tipo: TipoAjuste;
   } | null>(null);
+
+  // Estados para los diálogos de confirmación
+  const [regenerarDialog, setRegenerarDialog] = useState<{
+    show: boolean;
+    planilla: PlanillaAPI["planilla"] | null;
+  }>({
+    show: false,
+    planilla: null,
+  });
+
+  const [marcarPagoDialog, setMarcarPagoDialog] = useState<{
+    show: boolean;
+    detalleId: number | null;
+    trabajadorNombre: string;
+  }>({
+    show: false,
+    detalleId: null,
+    trabajadorNombre: "",
+  });
+
+  const [cambiarEstadoDialog, setCambiarEstadoDialog] = useState<{
+    show: boolean;
+    planilla: PlanillaAPI["planilla"] | null;
+    nuevoEstado: string;
+  }>({
+    show: false,
+    planilla: null,
+    nuevoEstado: "",
+  });
 
   // Hook de paginación para los detalles de planilla
   const {
@@ -300,30 +333,16 @@ export default function PlanillaPage() {
       return;
     }
 
-    const motivo = window.prompt(
-      "Ingrese el motivo de la regeneración:",
-      "Corrección por actualización de datos"
-    );
+    setRegenerarDialog({
+      show: true,
+      planilla: planillaSeleccionada.planilla,
+    });
+  };
 
-    if (!motivo || motivo.trim() === "") {
-      toast.error("Debe proporcionar un motivo para la regeneración");
-      return;
-    }
+  const confirmRegenerarPlanilla = async (motivo: string) => {
+    if (!regenerarDialog.planilla) return;
 
-    const planilla = planillaSeleccionada.planilla;
-    const tipoPlanilla =
-      planilla.periodo === 0
-        ? "Mensual"
-        : planilla.periodo === 1
-        ? "Primera Quincena"
-        : "Segunda Quincena";
-
-    if (
-      !window.confirm(
-        `¿Desea REGENERAR la planilla ${tipoPlanilla} de ${planilla.mes}/${planilla.anio}?\n\nMotivo: ${motivo}\n\n⚠️ ATENCIÓN: Esto reemplazará completamente la planilla actual con nuevos cálculos.`
-      )
-    )
-      return;
+    const planilla = regenerarDialog.planilla;
 
     await handleOperationWithToast(
       async () => {
@@ -343,6 +362,9 @@ export default function PlanillaPage() {
         defaultError: "No se pudo regenerar la planilla.",
       }
     );
+
+    // Cerrar el diálogo
+    setRegenerarDialog({ show: false, planilla: null });
   };
 
   const handleGuardarAjuste = async (payload: Omit<AjustePayload, "tipo">) => {
@@ -368,17 +390,26 @@ export default function PlanillaPage() {
     );
   };
 
-  const handleMarcarPago = async (detalleId: number) => {
-    if (
-      !window.confirm(
-        "¿Está seguro de que desea marcar este pago como realizado?"
-      )
-    )
-      return;
+  const handleMarcarPago = async (
+    detalleId: number,
+    trabajadorNombre?: string
+  ) => {
+    setMarcarPagoDialog({
+      show: true,
+      detalleId,
+      trabajadorNombre: trabajadorNombre || "",
+    });
+  };
+
+  const confirmMarcarPago = async () => {
+    if (!marcarPagoDialog.detalleId) return;
 
     await handleOperationWithToast(
       async () => {
-        await patch(`/planillas/detalles/${detalleId}/pagar`, {});
+        await patch(
+          `/planillas/detalles/${marcarPagoDialog.detalleId}/pagar`,
+          {}
+        );
         await refreshPlanillasPreservingSelection(); // Mantener selección
         refreshDetalles(); // Refrescar también los detalles paginados
         return "Pago registrado exitosamente";
@@ -389,18 +420,33 @@ export default function PlanillaPage() {
         defaultError: "No se pudo actualizar el estado del pago.",
       }
     );
+
+    // Cerrar el diálogo
+    setMarcarPagoDialog({ show: false, detalleId: null, trabajadorNombre: "" });
   };
 
   const handleCambiarEstado = async (
     planillaId: number,
     nuevoEstado: string
   ) => {
+    const planillaActual = planillas.find((p) => p.planilla.id === planillaId);
+    if (!planillaActual) return;
+
+    setCambiarEstadoDialog({
+      show: true,
+      planilla: planillaActual.planilla,
+      nuevoEstado,
+    });
+  };
+
+  const confirmCambiarEstado = async () => {
+    if (!cambiarEstadoDialog.planilla || !cambiarEstadoDialog.nuevoEstado)
+      return;
+
+    const planillaId = cambiarEstadoDialog.planilla.id;
+    const nuevoEstado = cambiarEstadoDialog.nuevoEstado;
     const estadoTexto =
       nuevoEstado === "PROCESADA" ? "procesar" : "marcar como pagada";
-
-    if (!window.confirm(`¿Está seguro de ${estadoTexto} esta planilla?`)) {
-      return;
-    }
 
     await handleOperationWithToast(
       async () => {
@@ -421,6 +467,9 @@ export default function PlanillaPage() {
         defaultError: `Error al ${estadoTexto} la planilla`,
       }
     );
+
+    // Cerrar el diálogo
+    setCambiarEstadoDialog({ show: false, planilla: null, nuevoEstado: "" });
   };
 
   // Helper functions para validar si se pueden hacer ajustes
@@ -538,17 +587,8 @@ export default function PlanillaPage() {
                     <div className="text-sm text-slate-600 space-y-1">
                       <p>
                         📅{" "}
-                        {planillaExistente.planilla.fechaInicio
-                          ? new Date(
-                              planillaExistente.planilla.fechaInicio
-                            ).toLocaleDateString("es-PE")
-                          : "N/A"}{" "}
-                        -{" "}
-                        {planillaExistente.planilla.fechaFin
-                          ? new Date(
-                              planillaExistente.planilla.fechaFin
-                            ).toLocaleDateString("es-PE")
-                          : "N/A"}
+                        {formatFechaUTC(planillaExistente.planilla.fechaInicio)}{" "}
+                        - {formatFechaUTC(planillaExistente.planilla.fechaFin)}
                       </p>
                       <p>
                         💰 Total: S/{" "}
@@ -832,7 +872,12 @@ export default function PlanillaPage() {
                           </button>
                           {detalle.estadoPago === "PENDIENTE" && (
                             <button
-                              onClick={() => handleMarcarPago(detalle.id)}
+                              onClick={() =>
+                                handleMarcarPago(
+                                  detalle.id,
+                                  `${detalle.trabajador.nombres} ${detalle.trabajador.apellidos}`
+                                )
+                              }
                               className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs"
                             >
                               <CurrencyDollarIcon className="w-4 h-4" /> Marcar
@@ -892,6 +937,41 @@ export default function PlanillaPage() {
           onSave={handleGuardarAjuste}
         />
       )}
+
+      {/* Diálogos de confirmación */}
+      <RegenerarPlanillaDialog
+        show={regenerarDialog.show}
+        planilla={regenerarDialog.planilla}
+        onConfirm={confirmRegenerarPlanilla}
+        onCancel={() => setRegenerarDialog({ show: false, planilla: null })}
+      />
+
+      <MarcarPagoDialog
+        show={marcarPagoDialog.show}
+        trabajadorNombre={marcarPagoDialog.trabajadorNombre}
+        onConfirm={confirmMarcarPago}
+        onCancel={() =>
+          setMarcarPagoDialog({
+            show: false,
+            detalleId: null,
+            trabajadorNombre: "",
+          })
+        }
+      />
+
+      <CambiarEstadoPlanillaDialog
+        show={cambiarEstadoDialog.show}
+        planilla={cambiarEstadoDialog.planilla}
+        nuevoEstado={cambiarEstadoDialog.nuevoEstado}
+        onConfirm={confirmCambiarEstado}
+        onCancel={() =>
+          setCambiarEstadoDialog({
+            show: false,
+            planilla: null,
+            nuevoEstado: "",
+          })
+        }
+      />
     </div>
   );
 }

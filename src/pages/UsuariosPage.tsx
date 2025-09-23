@@ -10,6 +10,7 @@ import {
 import useFetchApi from "../hooks/use-fetch";
 import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
+import { formatFechaUTC } from "../utils/date-utils";
 
 import type { User } from "../context/auth-context";
 import type { UpdateUserFormData } from "../components/edit-user-modal";

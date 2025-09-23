@@ -19,6 +19,7 @@ import { Link, useParams } from "react-router-dom";
 import useFetchApi from "../hooks/use-fetch";
 import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
+import { formatFechaUTC } from "../utils/date-utils";
 
 // ============================================================================
 // UTILIDADES
@@ -687,14 +688,10 @@ export default function ContratosPage() {
                           </span>
                         </td>
                         <td className="px-4 py-2">
-                          {new Date(contrato.fechaInicio).toLocaleDateString(
-                            "es-PE"
-                          )}
+                          {formatFechaUTC(contrato.fechaInicio)}
                         </td>
                         <td className="px-4 py-2">
-                          {new Date(contrato.fechaFin).toLocaleDateString(
-                            "es-PE"
-                          )}
+                          {formatFechaUTC(contrato.fechaFin)}
                         </td>
                         <td className="px-4 py-2">
                           S/ {Number(contrato.sueldoBase).toFixed(2)}

@@ -11,6 +11,7 @@ import useFetchApi from "../hooks/use-fetch";
 import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { formatFechaUTC } from "../utils/date-utils";
 
 // --- TIPOS DE DATOS ---
 type Categoria = {
@@ -340,8 +341,8 @@ export default function GastosPage() {
     setDeleteDialog({ show: false, gastoId: null, gastoName: "" });
   };
 
-  const formatearFecha = (fechaISO: string) =>
-    new Date(fechaISO).toLocaleDateString("es-PE");
+  // Función helper para formatear fechas
+  const formatearFecha = (fechaISO: string) => formatFechaUTC(fechaISO);
 
   return (
     <div className="p-6 bg-[#f9fafb] flex flex-col space-y-6">
