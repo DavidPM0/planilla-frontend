@@ -31,7 +31,6 @@ export default function LoginPage() {
         const errorMessage =
           err?.response?.data?.message ||
           "Credenciales inválidas o error de red.";
-        console.error("Login failed", err);
         return errorMessage;
       },
     });

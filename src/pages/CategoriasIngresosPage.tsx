@@ -10,6 +10,7 @@ import {
 import useFetchApi from "../hooks/use-fetch";
 import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 // --- TIPOS DE DATOS ---
 type Categoria = {
@@ -118,6 +119,17 @@ export default function CategoriasIngresosPage() {
     null
   );
 
+  // Estado para el dialog de confirmación de eliminación
+  const [deleteDialog, setDeleteDialog] = useState<{
+    show: boolean;
+    categoriaId: number | null;
+    categoriaName: string;
+  }>({
+    show: false,
+    categoriaId: null,
+    categoriaName: "",
+  });
+
   const { post, patch, del } = useFetchApi();
 
   const additionalParams = useMemo(() => ({ tipo: "INGRESO" }), []);
@@ -165,39 +177,50 @@ export default function CategoriasIngresosPage() {
       error: (err) => {
         const errorMessage =
           err?.response?.data?.message || "No se pudo crear la categoría.";
-        console.error("Error creating categoria:", err);
         return errorMessage;
       },
     });
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = (id: number) => {
     const categoriaToDelete = categorias.find((cat) => cat.id === id);
     const categoriaName = categoriaToDelete?.nombre || "la categoría";
 
-    if (
-      window.confirm(`¿Está seguro de que desea eliminar "${categoriaName}"?`)
-    ) {
-      const deletePromise = del(`/categorias/${id}`)
-        .then(async () => {
-          refresh();
-        })
-        .catch(async (err) => {
-          refresh(); // Refrescar en caso de error
-          throw err;
-        });
+    setDeleteDialog({
+      show: true,
+      categoriaId: id,
+      categoriaName,
+    });
+  };
 
-      toast.promise(deletePromise, {
-        loading: "Eliminando categoría...",
-        success: `Categoría "${categoriaName}" eliminada exitosamente`,
-        error: (err) => {
-          const errorMessage =
-            err?.response?.data?.message || "No se pudo eliminar la categoría.";
-          console.error("Error deleting categoria:", err);
-          return errorMessage;
-        },
+  const confirmDelete = async () => {
+    if (!deleteDialog.categoriaId) return;
+
+    const deletePromise = del(`/categorias/${deleteDialog.categoriaId}`)
+      .then(async () => {
+        refresh();
+      })
+      .catch(async (err) => {
+        refresh(); // Refrescar en caso de error
+        throw err;
       });
-    }
+
+    toast.promise(deletePromise, {
+      loading: "Eliminando categoría...",
+      success: `Categoría "${deleteDialog.categoriaName}" eliminada exitosamente`,
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message || "No se pudo eliminar la categoría.";
+        return errorMessage;
+      },
+    });
+
+    // Cerrar el dialog
+    setDeleteDialog({ show: false, categoriaId: null, categoriaName: "" });
+  };
+
+  const cancelDelete = () => {
+    setDeleteDialog({ show: false, categoriaId: null, categoriaName: "" });
   };
 
   const handleEditClick = (categoria: Categoria) => {
@@ -227,7 +250,6 @@ export default function CategoriasIngresosPage() {
       error: (err) => {
         const errorMessage =
           err?.response?.data?.message || "No se pudo actualizar la categoría.";
-        console.error("Error updating categoria:", err);
         return errorMessage;
       },
     });
@@ -421,6 +443,17 @@ export default function CategoriasIngresosPage() {
           onCancel={handleCloseModal}
         />
       )}
+
+      <ConfirmDialog
+        show={deleteDialog.show}
+        title="Confirmar eliminación"
+        message={`¿Estás seguro de eliminar la categoría "${deleteDialog.categoriaName}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        isDestructive={true}
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
 import useFetchApi from "../hooks/use-fetch";
 import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 // --- TIPOS DE DATOS ---
 type Categoria = {
@@ -208,6 +209,17 @@ export default function IngresosPage() {
     null
   );
 
+  // Estado para el dialog de confirmación de eliminación
+  const [deleteDialog, setDeleteDialog] = useState<{
+    show: boolean;
+    ingresoId: number | null;
+    ingresoName: string;
+  }>({
+    show: false,
+    ingresoId: null,
+    ingresoName: "",
+  });
+
   const { get, post, patch, del } = useFetchApi();
 
   // Memoizar additionalParams para evitar re-renderizados infinitos
@@ -247,7 +259,7 @@ export default function IngresosPage() {
         );
         setCategorias(categoriasData);
       } catch (err) {
-        console.error("No se pudieron cargar las categorías:", err);
+        toast.error("No se pudieron cargar las categorías");
       }
     };
     loadCategorias();
@@ -270,7 +282,6 @@ export default function IngresosPage() {
       error: (err) => {
         const errorMessage =
           err?.response?.data?.message || "Error al crear el ingreso";
-        console.error("Error creating ingreso:", err);
         return errorMessage;
       },
     });
@@ -295,32 +306,47 @@ export default function IngresosPage() {
       error: (err) => {
         const errorMessage =
           err?.response?.data?.message || "Error al actualizar el ingreso";
-        console.error("Error updating ingreso:", err);
         return errorMessage;
       },
     });
   };
 
-  const handleEliminar = async (id: number) => {
+  const handleEliminar = (id: number) => {
     const ingresoToDelete = ingresos.find((t: Transaccion) => t.id === id);
     const ingresoName = ingresoToDelete?.nombre || "el ingreso";
 
-    if (window.confirm(`¿Estás seguro de eliminar "${ingresoName}"?`)) {
-      const deletePromise = del(`/transacciones/${id}`).then(async () => {
-        refresh();
-      });
+    setDeleteDialog({
+      show: true,
+      ingresoId: id,
+      ingresoName,
+    });
+  };
 
-      toast.promise(deletePromise, {
-        loading: "Eliminando ingreso...",
-        success: `Ingreso "${ingresoName}" eliminado exitosamente`,
-        error: (err) => {
-          const errorMessage =
-            err?.response?.data?.message || "Error al eliminar el ingreso";
-          console.error("Error deleting ingreso:", err);
-          return errorMessage;
-        },
-      });
-    }
+  const confirmDelete = async () => {
+    if (!deleteDialog.ingresoId) return;
+
+    const deletePromise = del(`/transacciones/${deleteDialog.ingresoId}`).then(
+      async () => {
+        refresh();
+      }
+    );
+
+    toast.promise(deletePromise, {
+      loading: "Eliminando ingreso...",
+      success: `Ingreso "${deleteDialog.ingresoName}" eliminado exitosamente`,
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message || "Error al eliminar el ingreso";
+        return errorMessage;
+      },
+    });
+
+    // Cerrar el dialog
+    setDeleteDialog({ show: false, ingresoId: null, ingresoName: "" });
+  };
+
+  const cancelDelete = () => {
+    setDeleteDialog({ show: false, ingresoId: null, ingresoName: "" });
   };
 
   const formatearFecha = (fechaISO: string) =>
@@ -496,6 +522,17 @@ export default function IngresosPage() {
           categorias={categorias}
         />
       )}
+
+      <ConfirmDialog
+        show={deleteDialog.show}
+        title="Confirmar eliminación"
+        message={`¿Estás seguro de eliminar "${deleteDialog.ingresoName}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        isDestructive={true}
+      />
     </div>
   );
 }

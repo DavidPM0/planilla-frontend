@@ -10,6 +10,7 @@ import {
 import useFetchApi from "../hooks/use-fetch";
 import { usePaginationQuery } from "../hooks/use-pagination-query";
 import { toast } from "sonner";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 // --- TIPOS DE DATOS ---
 type Categoria = {
@@ -203,6 +204,17 @@ export default function GastosPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingGasto, setEditingGasto] = useState<Transaccion | null>(null);
 
+  // Estado para el dialog de confirmación de eliminación
+  const [deleteDialog, setDeleteDialog] = useState<{
+    show: boolean;
+    gastoId: number | null;
+    gastoName: string;
+  }>({
+    show: false,
+    gastoId: null,
+    gastoName: "",
+  });
+
   const { get, post, patch, del } = useFetchApi();
 
   // Memoizar additionalParams para evitar re-renderizados infinitos
@@ -240,7 +252,7 @@ export default function GastosPage() {
         const categoriasData = await get<Categoria[]>("/categorias?tipo=GASTO");
         setCategorias(categoriasData);
       } catch (err) {
-        console.error("No se pudieron cargar las categorías:", err);
+        toast.error("No se pudieron cargar las categorías");
       }
     };
     loadCategorias();
@@ -263,7 +275,6 @@ export default function GastosPage() {
       error: (err) => {
         const errorMessage =
           err?.response?.data?.message || "Error al crear el gasto";
-        console.error("Error creating gasto:", err);
         return errorMessage;
       },
     });
@@ -286,32 +297,47 @@ export default function GastosPage() {
       error: (err) => {
         const errorMessage =
           err?.response?.data?.message || "Error al actualizar el gasto";
-        console.error("Error updating gasto:", err);
         return errorMessage;
       },
     });
   };
 
-  const handleEliminar = async (id: number) => {
+  const handleEliminar = (id: number) => {
     const gastoToDelete = gastos.find((t: Transaccion) => t.id === id);
     const gastoName = gastoToDelete?.nombre || "el gasto";
 
-    if (window.confirm(`¿Estás seguro de eliminar "${gastoName}"?`)) {
-      const deletePromise = del(`/transacciones/${id}`).then(async () => {
-        refresh();
-      });
+    setDeleteDialog({
+      show: true,
+      gastoId: id,
+      gastoName,
+    });
+  };
 
-      toast.promise(deletePromise, {
-        loading: "Eliminando gasto...",
-        success: `Gasto "${gastoName}" eliminado exitosamente`,
-        error: (err) => {
-          const errorMessage =
-            err?.response?.data?.message || "Error al eliminar el gasto";
-          console.error("Error deleting gasto:", err);
-          return errorMessage;
-        },
-      });
-    }
+  const confirmDelete = async () => {
+    if (!deleteDialog.gastoId) return;
+
+    const deletePromise = del(`/transacciones/${deleteDialog.gastoId}`).then(
+      async () => {
+        refresh();
+      }
+    );
+
+    toast.promise(deletePromise, {
+      loading: "Eliminando gasto...",
+      success: `Gasto "${deleteDialog.gastoName}" eliminado exitosamente`,
+      error: (err) => {
+        const errorMessage =
+          err?.response?.data?.message || "Error al eliminar el gasto";
+        return errorMessage;
+      },
+    });
+
+    // Cerrar el dialog
+    setDeleteDialog({ show: false, gastoId: null, gastoName: "" });
+  };
+
+  const cancelDelete = () => {
+    setDeleteDialog({ show: false, gastoId: null, gastoName: "" });
   };
 
   const formatearFecha = (fechaISO: string) =>
@@ -487,6 +513,17 @@ export default function GastosPage() {
           categorias={categorias}
         />
       )}
+
+      <ConfirmDialog
+        show={deleteDialog.show}
+        title="Confirmar eliminación"
+        message={`¿Estás seguro de eliminar "${deleteDialog.gastoName}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        isDestructive={true}
+      />
     </div>
   );
 }

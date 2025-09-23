@@ -93,7 +93,6 @@ export default function DashboardPage() {
       setGraficaData(grafica);
     } catch (err) {
       setError("No se pudieron cargar los datos del dashboard.");
-      console.error(err);
     } finally {
       setIsLoading(false);
     }

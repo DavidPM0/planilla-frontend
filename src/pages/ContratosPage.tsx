@@ -420,7 +420,6 @@ export default function ContratosPage() {
         const message = Array.isArray(errorMessage)
           ? errorMessage.join(", ")
           : errorMessage;
-        console.error("Error creating contrato:", err);
         return `Error: ${message}`;
       },
     });
@@ -451,7 +450,6 @@ export default function ContratosPage() {
       error: (err) => {
         const errorMessage =
           err?.response?.data?.message || "Error al actualizar el contrato.";
-        console.error("Error updating contrato:", err);
         return errorMessage;
       },
     });

@@ -2,6 +2,7 @@ import { useState, useEffect, type ChangeEvent, type FormEvent } from "react";
 import { useAuth } from "../context/auth-context";
 import useFetchApi from "../hooks/use-fetch";
 import { toast } from "sonner";
+import profileImage from "../assets/profile.jpg";
 
 // Tipo para los datos que se enviarán en el PATCH
 type UpdateProfileFormData = {
@@ -23,8 +24,6 @@ export default function PerfilPage() {
     correoElectronico: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imagen, setImagen] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -40,14 +39,6 @@ export default function PerfilPage() {
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImagen(file);
-      setPreview(URL.createObjectURL(file));
-    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -105,22 +96,9 @@ export default function PerfilPage() {
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="flex flex-col items-center lg:items-start gap-4">
             <img
-              src={preview || "https://via.placeholder.com/120"}
+              src={profileImage}
               alt="Perfil"
               className="w-28 h-28 rounded-full object-cover border border-slate-300"
-            />
-            <label
-              htmlFor="imagen"
-              className="cursor-pointer inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition"
-            >
-              Cambiar foto
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="hidden"
-              id="imagen"
             />
           </div>
 
